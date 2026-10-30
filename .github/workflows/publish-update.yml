@@ -1,0 +1,43 @@
+name: Publish LiquidTouch update
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'releases/LiquidTouch-Update-v*.json'
+      - 'scripts/publish-feed.cjs'
+      - '.github/workflows/publish-update.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: liquidtouch-update-feed-main
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the latest publishing files
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: main
+
+      - name: Verify releases and create the feed
+        run: node scripts/publish-feed.cjs
+
+      - name: Publish the generated feed
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- latest.json
+          if git diff --cached --quiet; then
+            echo 'The feed already matches the newest release.'
+            exit 0
+          fi
+          git commit -m 'Publish LiquidTouch update feed'
+          git push origin HEAD:main
