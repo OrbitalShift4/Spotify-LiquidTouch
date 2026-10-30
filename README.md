@@ -17,10 +17,6 @@ installation instructions, and enable update checks for future releases.
    the package. Follow its prompts, then reopen Spotify.
 6. Configure the update feed below once to receive future update offers.
 
-The full LiquidTouch ZIP is the installation download. The update JSON and
-auto-update setup ZIP serve existing installations and maintainers respectively.
-GitHub's automatic **Source code** archives contain the repository files.
-
 ## Enable update checks
 
 After installing LiquidTouch 1.9.0 or a compatible later loader:
