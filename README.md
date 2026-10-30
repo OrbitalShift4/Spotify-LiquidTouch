@@ -5,7 +5,6 @@ installation instructions, and enable update checks for future releases.
 
 **[Download the latest release](https://github.com/OrbitalShift4/Spotify-LiquidTouch/releases/latest)**
 · [All versions and patch notes](https://github.com/OrbitalShift4/Spotify-LiquidTouch/releases)
-· [Maintainer guide](docs/MAINTAINER.md)
 
 ## Download and install on Windows
 
