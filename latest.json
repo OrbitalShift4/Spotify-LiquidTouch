@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "app": "LiquidTouch",
+  "version": "1.9.0",
+  "bundleURL": "./releases/LiquidTouch-Update-v1.9.0.json",
+  "sha256": "e7dfc861328ad2819c39a85002c1e5cc27342e7776b74f723ba2656a42fb1557",
+  "summary": [
+    "Separate lyrics and song-detail text sizes.",
+    "Single taps play after a short adjustable wait; double taps only open.",
+    "Slower, finger-following player expansion and dismissal.",
+    "In-app update files, optional update notifications, and first-launch release notes."
+  ]
+}
