@@ -1,0 +1,23 @@
+--- a/source/liquid-touch-app.js
++++ b/source/liquid-touch-app.js
+@@ -15,9 +15,10 @@
+     window[CHROME_QUEUE] = pending;
+     return pending;
+   }
++  const DEFAULT_UPDATE_FEED = "https://raw.githubusercontent.com/OrbitalShift4/Spotify-LiquidTouch/main/latest.json";
+   const DEFAULTS = Object.freeze({
+     enabled: true, palette: "glass", size: "comfort", keyboard: true,
+-    lite: false, reduceMotion: false, startPlayer: false, updateChecks: true, updateFeed: '', homeClock: false, clockFormat: '24',
++    lite: false, reduceMotion: false, startPlayer: false, updateChecks: true, updateFeed: DEFAULT_UPDATE_FEED, homeClock: false, clockFormat: '24',
+     textScale: 120, uiScale: 100, playerTextScale: 100, playerLyricsScale: 100, playerControlScale: 100, cardTapDelay: 400, keyboardHeight: 145, artworkSize: 135, glassOpacity: 35, headerOpacity: null, navOpacity: null, miniOpacity: null, playerHeaderOpacity: null, lyricsOpacity: null, settingsOpacity: null, historyOpacity: null, adaptive: true, windowControls: true, rounding: 32, welcome: "", welcomeSubtitle: "A little closer to the music.", lyrics: true, lyricsFallback: true, lyricsTextFallback: true
+   });
+   // A null override follows the universal setting, including future changes.
+@@ -87,7 +88,7 @@
+     if(stored?.playerLyricsScale===undefined)value.playerLyricsScale=value.playerTextScale;
+     for(const key of ['settingsOpacity','historyOpacity'])if(stored?.[key]===undefined && typeof stored?.sheetOpacity==='number' && Number.isFinite(stored.sheetOpacity))value[key]=clamp(Math.round(stored.sheetOpacity),0,100);
+     for (const key of ["welcome","welcomeSubtitle"]) if(typeof stored?.[key]==="string")value[key]=stored[key].slice(0,160);
+-    if(typeof stored?.updateFeed==='string')value.updateFeed=stored.updateFeed.slice(0,2000);
++    if(typeof stored?.updateFeed==='string' && stored.updateFeed.trim())value.updateFeed=stored.updateFeed.trim().slice(0,2000);
+     return value;
+   }
+   function read(fn, fallback) { try { const v = fn(); return v ?? fallback; } catch { return fallback; } }
