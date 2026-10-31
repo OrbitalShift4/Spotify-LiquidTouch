@@ -17,7 +17,13 @@ installation instructions, and enable update checks for future releases.
    the package. Follow its prompts, then reopen Spotify.
 6. Configure the update feed below once to receive future update offers.
 
-## Enable update checks
+
+## Patch notes and previous versions
+
+See [Releases](https://github.com/OrbitalShift4/Spotify-LiquidTouch/releases) for full
+release notes and older installation packages.
+
+## Enable update checks (1.9.1 and lower)
 
 After installing LiquidTouch 1.9.0 or a compatible later loader:
 
@@ -36,11 +42,6 @@ brief notes with a link to the full patch notes.
 
 If a release requires a newer loader or installer, download its full package
 and follow that release's installation instructions.
-
-## Patch notes and previous versions
-
-See [Releases](https://github.com/OrbitalShift4/Spotify-LiquidTouch/releases) for full
-release notes and older installation packages.
 
 ## Troubleshooting
 
