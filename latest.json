@@ -1,11 +1,12 @@
 {
   "schema": 1,
   "app": "LiquidTouch",
-  "version": "1.9.1",
-  "bundleURL": "./releases/LiquidTouch-Update-v1.9.1.json",
-  "sha256": "3d7614091db5558db7fe7a34665e820dbdb16ec25d4eff4c6428d8e957726a4b",
+  "version": "1.9.2",
+  "bundleURL": "./releases/LiquidTouch-Update-v1.9.2.json",
+  "sha256": "bb56c9844e15878cc705f5247fe9376f95685ebf25201e7cc71ba3ffe7081d47",
   "summary": [
     "Swipe inward from the left edge to go Back, including Now Playing and open sheets.",
-    "Optional Home clock beside the greeting, with saved 12-hour or 24-hour format."
+    "Optional Home clock beside the greeting, with saved 12-hour or 24-hour format.",
+    "Official repository update-feed URL is prefilled; custom feeds and disabled checks are preserved."
   ]
 }
