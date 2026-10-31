@@ -1,13 +1,11 @@
 {
   "schema": 1,
   "app": "LiquidTouch",
-  "version": "1.9.0",
-  "bundleURL": "./releases/LiquidTouch-Update-v1.9.0.json",
-  "sha256": "e7dfc861328ad2819c39a85002c1e5cc27342e7776b74f723ba2656a42fb1557",
+  "version": "1.9.1",
+  "bundleURL": "./releases/LiquidTouch-Update-v1.9.1.json",
+  "sha256": "3d7614091db5558db7fe7a34665e820dbdb16ec25d4eff4c6428d8e957726a4b",
   "summary": [
-    "Separate lyrics and song-detail text sizes.",
-    "Single taps play after a short adjustable wait; double taps only open.",
-    "Slower, finger-following player expansion and dismissal.",
-    "In-app update files, optional update notifications, and first-launch release notes."
+    "Swipe inward from the left edge to go Back, including Now Playing and open sheets.",
+    "Optional Home clock beside the greeting, with saved 12-hour or 24-hour format."
   ]
 }
