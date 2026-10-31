@@ -1,0 +1,26 @@
+name: Publish full installer release
+on:
+  push:
+    branches: [main]
+    paths: ['release-packages/**']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: liquidtouch-full-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - name: Verify installer and publish v1.9.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          cd release-packages
+          sha256sum --check SHA256SUMS
+          unzip -t LiquidTouch-v1.9.1.zip
+          gh release create v1.9.1 LiquidTouch-v1.9.1.zip --target "$GITHUB_SHA" --title "LiquidTouch v1.9.1 — Touch navigation and Home clock" --notes-file v1.9.1.md --latest
