@@ -1,7 +1,6 @@
 {
-  "version": "1.9.2",
-  "title": "LiquidTouch v1.9.2 \u2014 Settings categories and touch gestures",
-  "sha256": "f7b987e1bc8399e609d8c753e5b3ffa47682de1dc6077f3fcf8af6e2a3c8fa6e",
-  "replaceExisting": true,
-  "previousSha256": "592efdee0b90cd811dd850337be04b6c6f06689fd511e4fedd72922e2a98e0f1"
+  "version": "1.9.3",
+  "title": "LiquidTouch v1.9.3 \u2014 Motion and gesture controls",
+  "sha256": "364c1bd43ade7d69e64dc8ec7fd3fdd688c33d90690f8fc22aa3a0789f189807",
+  "replaceExisting": false
 }

@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "repository": "OrbitalShift4/Spotify-LiquidTouch",
+  "version": "1.9.3",
+  "stageBranch": "release/v1.9.3",
+  "scheduledFor": "2026-11-02T06:00:00+04:00",
+  "expectedPreviousVersion": "1.9.2",
+  "artifacts": [
+    {
+      "path": "release-packages/LiquidTouch-v1.9.3.zip",
+      "gitBlobSHA": "4f102f747fd6ee42d62691200351f19ae70f28fb",
+      "sha256": "364c1bd43ade7d69e64dc8ec7fd3fdd688c33d90690f8fc22aa3a0789f189807",
+      "bytes": 908322
+    },
+    {
+      "path": "releases/LiquidTouch-Update-v1.9.3.json",
+      "gitBlobSHA": "5022733bb7fdf0ced7af2e2c26ef82b0c41c1d9b",
+      "sha256": "7c54a5e66d49d4dea4b6f64e342eb19d435db6aac667729459b7099da750ebe3",
+      "bytes": 338615
+    },
+    {
+      "path": "release-packages/release.json",
+      "gitBlobSHA": "11ad4e907ec79573319985e2146cbd064d23061f",
+      "sha256": "719980bb722c1a9a606dfbf26759fb0abc21fa3456a193237c536e7d6ae99d53",
+      "bytes": 201
+    },
+    {
+      "path": "release-packages/SHA256SUMS",
+      "gitBlobSHA": "2f91bfa51bb949abb89326b9f74db491f6992a1c",
+      "sha256": "9cb6f5a94d6085746af63f4dee2f8d3c40280764cf4b3b8cf92332c52166c1c0",
+      "bytes": 267
+    },
+    {
+      "path": "release-packages/v1.9.3.md",
+      "gitBlobSHA": "533cf50544adb539e77f6db7233a51b45acfaf82",
+      "sha256": "5469101ef2f797c2a9839a137048a62fecc0be562ef3bf36784bf0bec3b9902c",
+      "bytes": 2831
+    }
+  ],
+  "publication": "Promote only these prepared files to main when the scheduled automation runs. Existing main push workflows publish the update feed and full release. Do not publish early or edit latest.json manually. Preserve earlier releases and unrelated main changes.",
+  "verification": "Both publishing workflows must succeed. Verify latest.json version/sha256 and the release ZIP asset size/digest against this plan.",
+  "validated": "89 Chromium suites and seven installer checks; simulated Spotify, lyrics and Windows hooks."
+}
