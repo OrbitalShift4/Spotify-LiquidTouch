@@ -25,7 +25,9 @@ jobs:
           const asset='release-packages/LiquidTouch-v'+m.version+'.zip';
           if(crypto.createHash('sha256').update(fs.readFileSync(asset)).digest('hex')!==m.sha256)throw Error('Installer checksum mismatch');
           if(!fs.existsSync('release-packages/v'+m.version+'.md'))throw Error('Release description missing');
-          fs.appendFileSync(process.env.GITHUB_OUTPUT,'version='+m.version+'\ntitle='+m.title+'\n');
+          if(m.replaceExisting!==undefined && typeof m.replaceExisting!=='boolean')throw Error('Invalid replacement flag');
+          if(m.replaceExisting && !/^[a-f0-9]{64}$/.test(m.previousSha256 || ''))throw Error('Replacement needs the previous asset checksum');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'version='+m.version+'\ntitle='+m.title+'\nsha256='+m.sha256+'\nreplace_existing='+(m.replaceExisting===true)+'\nprevious_sha256='+(m.previousSha256 || '')+'\n');
           NODE
       - name: Verify and publish full installer
         env:
@@ -33,13 +35,28 @@ jobs:
           GH_REPO: ${{ github.repository }}
           LT_VERSION: ${{ steps.package.outputs.version }}
           LT_TITLE: ${{ steps.package.outputs.title }}
+          LT_SHA256: ${{ steps.package.outputs.sha256 }}
+          LT_REPLACE: ${{ steps.package.outputs.replace_existing }}
+          LT_PREVIOUS_SHA256: ${{ steps.package.outputs.previous_sha256 }}
         shell: bash
         run: |
           cd release-packages
           sha256sum --check SHA256SUMS
           unzip -t "LiquidTouch-v${LT_VERSION}.zip"
           if gh release view "v${LT_VERSION}" --json tagName > /dev/null 2>&1; then
-            echo "Release v${LT_VERSION} already exists; leaving it unchanged."
+            if [ "$LT_REPLACE" != "true" ]; then
+              echo "Release v${LT_VERSION} already exists; leaving it unchanged."
+              exit 0
+            fi
+            digest=$(gh api "repos/${GH_REPO}/releases/tags/v${LT_VERSION}" --jq ".assets[] | select(.name == \"LiquidTouch-v${LT_VERSION}.zip\") | .digest")
+            if [ "$digest" != "sha256:$LT_PREVIOUS_SHA256" ] && [ "$digest" != "sha256:$LT_SHA256" ]; then
+              echo "Existing release asset changed; refusing to replace it."
+              exit 1
+            fi
+            gh release upload "v${LT_VERSION}" "LiquidTouch-v${LT_VERSION}.zip" --clobber
+            gh release edit "v${LT_VERSION}" --title "$LT_TITLE" --notes-file "v${LT_VERSION}.md" --latest
+            gh api --method PATCH "repos/${GH_REPO}/git/refs/tags/v${LT_VERSION}" -f sha="$GITHUB_SHA" -F force=true
             exit 0
           fi
           gh release create "v${LT_VERSION}" "LiquidTouch-v${LT_VERSION}.zip" --target "$GITHUB_SHA" --title "$LT_TITLE" --notes-file "v${LT_VERSION}.md" --latest
+

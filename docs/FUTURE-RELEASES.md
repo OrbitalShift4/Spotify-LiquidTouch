@@ -11,3 +11,5 @@ The default is implemented in the v1.9.2 source. The retained `default-update-fe
 For each full release, add its ZIP and Markdown description under `release-packages/`, update `SHA256SUMS`, and set the new version, title and ZIP hash in `release-packages/release.json`. The publishing workflow verifies the manifest and package, then creates the full release. Existing releases are left unchanged.
 
 Publish the compatible runtime JSON under `releases/` in the same commit. The update-feed workflow validates its integrity and publishes `latest.json`. Do not edit the feed by hand.
+
+An explicitly requested same-version rebuild may set `replaceExisting: true` and `previousSha256` in the package manifest. The workflow checks the current asset digest before replacing that version’s ZIP, notes and tag. Leave replacement disabled for normal releases. Version-only clients already on that number require the revised full installer.

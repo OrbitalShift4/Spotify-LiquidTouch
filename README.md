@@ -20,6 +20,16 @@ installation instructions, and enable update checks for future releases.
    follow the one-time setup below.
 
 
+## Revised v1.9.2
+
+The revised v1.9.2 groups Settings into eight submenus. Swipe left to right to go
+Back, or pull the header down to close the menu. Both gestures follow your finger
+and confirm only after release past their threshold.
+
+**Already installed the first v1.9.2?** Download and reinstall the revised full ZIP.
+The older updater compares version numbers and will not offer a same-version
+rebuild. Preferences and listening history are preserved.
+
 ## Patch notes and previous versions
 
 See [Releases](https://github.com/OrbitalShift4/Spotify-LiquidTouch/releases) for full
