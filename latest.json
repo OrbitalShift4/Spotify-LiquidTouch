@@ -1,11 +1,12 @@
 {
   "schema": 1,
   "app": "LiquidTouch",
-  "version": "1.9.1",
-  "bundleURL": "./releases/LiquidTouch-Update-v1.9.1.json",
-  "sha256": "3d7614091db5558db7fe7a34665e820dbdb16ec25d4eff4c6428d8e957726a4b",
+  "version": "1.9.2",
+  "bundleURL": "./releases/LiquidTouch-Update-v1.9.2.json",
+  "sha256": "8fd4c11bdaba5c3a0d59277cfd93c69889098cd6754436e02439f29958bfe248",
   "summary": [
-    "Swipe inward from the left edge to go Back, including Now Playing and open sheets.",
-    "Optional Home clock beside the greeting, with saved 12-hour or 24-hour format."
+    "Lyrics timing and reload actions now share a compact three-dot menu.",
+    "Removed the Live Lyrics heading and tap-to-seek hint; lyric seeking remains available.",
+    "Official update-feed address is prefilled; custom addresses remain saved."
   ]
 }
