@@ -3,8 +3,10 @@
   "app": "LiquidTouch",
   "version": "1.9.2",
   "bundleURL": "./releases/LiquidTouch-Update-v1.9.2.json",
-  "sha256": "8fd4c11bdaba5c3a0d59277cfd93c69889098cd6754436e02439f29958bfe248",
+  "sha256": "c18ec047766e5a40b79708f13121e56823256ebd3b7da99f3a23e90c98b2ec8d",
   "summary": [
+    "Settings now has eight grouped submenus instead of one long list.",
+    "Swipe right to go Back in Settings; pull down to close, with finger-following motion and release thresholds.",
     "Lyrics timing and reload actions now share a compact three-dot menu.",
     "Removed the Live Lyrics heading and tap-to-seek hint; lyric seeking remains available.",
     "Official update-feed address is prefilled; custom addresses remain saved."
