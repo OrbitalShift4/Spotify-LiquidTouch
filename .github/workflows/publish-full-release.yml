@@ -14,13 +14,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-      - name: Verify installer and publish v1.9.1
+      - name: Validate release package manifest
+        id: package
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),crypto=require('node:crypto');
+          const m=JSON.parse(fs.readFileSync('release-packages/release.json','utf8'));
+          if(!/^\d+\.\d+\.\d+$/.test(m.version) || !/^[a-f0-9]{64}$/.test(m.sha256) || typeof m.title!=='string' || !m.title || /[\r\n]/.test(m.title))throw Error('Invalid release manifest');
+          const asset='release-packages/LiquidTouch-v'+m.version+'.zip';
+          if(crypto.createHash('sha256').update(fs.readFileSync(asset)).digest('hex')!==m.sha256)throw Error('Installer checksum mismatch');
+          if(!fs.existsSync('release-packages/v'+m.version+'.md'))throw Error('Release description missing');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'version='+m.version+'\ntitle='+m.title+'\n');
+          NODE
+      - name: Verify and publish full installer
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          LT_VERSION: ${{ steps.package.outputs.version }}
+          LT_TITLE: ${{ steps.package.outputs.title }}
         shell: bash
         run: |
           cd release-packages
           sha256sum --check SHA256SUMS
-          unzip -t LiquidTouch-v1.9.1.zip
-          gh release create v1.9.1 LiquidTouch-v1.9.1.zip --target "$GITHUB_SHA" --title "LiquidTouch v1.9.1 — Touch navigation and Home clock" --notes-file v1.9.1.md --latest
+          unzip -t "LiquidTouch-v${LT_VERSION}.zip"
+          if gh release view "v${LT_VERSION}" --json tagName > /dev/null 2>&1; then
+            echo "Release v${LT_VERSION} already exists; leaving it unchanged."
+            exit 0
+          fi
+          gh release create "v${LT_VERSION}" "LiquidTouch-v${LT_VERSION}.zip" --target "$GITHUB_SHA" --title "$LT_TITLE" --notes-file "v${LT_VERSION}.md" --latest

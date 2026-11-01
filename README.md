@@ -15,7 +15,9 @@ installation instructions, and enable update checks for future releases.
 4. Read the included installation instructions and complete their prerequisites.
 5. Close Spotify and run the included **Install-Windows.ps1** as instructed by
    the package. Follow its prompts, then reopen Spotify.
-6. Configure the update feed below once to receive future update offers.
+6. In v1.9.2 and later, the official update feed is already filled in. Leave
+   **Check for updates** on to receive future update offers. For older versions,
+   follow the one-time setup below.
 
 
 ## Patch notes and previous versions
