@@ -3,11 +3,11 @@
   "app": "LiquidTouch",
   "version": "1.9.4",
   "bundleURL": "./releases/LiquidTouch-Update-v1.9.4.json",
-  "sha256": "3f4951a49b15621c92e3b51b4251138530ed0057d91550545704fce501d53d0c",
+  "sha256": "6cd4b3f704ae866f6aa7ca31b84aa738f334b10c4884916c691fa34cf2d7f893",
   "summary": [
-    "Persistent local listening history, optional oldest-first limits and confirmed Clear history.",
-    "Hold cards or player artwork for LiquidTouch context actions; Devices and Queue now stay in LiquidTouch.",
-    "Unified player opacity and artwork layout that stays below the header; settings remain saved across updates.",
-    "History Close sits at the top right; Quick Search hides the toolbar and adds adjustable background blur."
+    "Redesigned listening history with a compact upper-left Close button, balanced toolbar and consistent artwork rows.",
+    "Queue and Devices no longer contain duplicate system window controls.",
+    "Devices now reads native Spotify Connect, supports desktop device formats and refreshes automatically, with Web API fallback.",
+    "All original v1.9.4 history, touch, player and Quick Search improvements are included."
   ]
 }
