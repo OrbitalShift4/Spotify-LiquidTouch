@@ -20,7 +20,16 @@ installation instructions, and enable update checks for future releases.
    follow the one-time setup below.
 
 
-## v1.9.4
+## Revised v1.9.4
+
+The revised package rebalances Listening history, moves Close to the top left,
+and removes duplicate app controls from Queue and Devices. Devices now uses
+Spotify desktop’s native Connect list, handles cached/asynchronous responses,
+refreshes while open, and keeps the Web API as a fallback.
+
+**Already running v1.9.4?** Download and reinstall the revised full ZIP.
+The original updater compares version numbers and cannot offer another v1.9.4.
+Settings and listening history stay saved. Earlier versions can use Check now.
 
 Persistent local listening history now has Unlimited, optional oldest-first caps,
 and a confirmed Clear history action. Hold cards or player artwork for touch
