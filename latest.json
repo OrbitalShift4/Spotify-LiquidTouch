@@ -1,12 +1,13 @@
 {
   "schema": 1,
   "app": "LiquidTouch",
-  "version": "1.9.3",
-  "bundleURL": "./releases/LiquidTouch-Update-v1.9.3.json",
-  "sha256": "7c54a5e66d49d4dea4b6f64e342eb19d435db6aac667729459b7099da750ebe3",
+  "version": "1.9.4",
+  "bundleURL": "./releases/LiquidTouch-Update-v1.9.4.json",
+  "sha256": "3f4951a49b15621c92e3b51b4251138530ed0057d91550545704fce501d53d0c",
   "summary": [
-    "Removed lyric source labels and reclaimed their space for a cleaner lyric layout.",
-    "Animation speeds now has overall and individual controls for every interface animation.",
-    "Swipe thresholds now lets you set the confirmation distance for every dynamic gesture."
+    "Persistent local listening history, optional oldest-first limits and confirmed Clear history.",
+    "Hold cards or player artwork for LiquidTouch context actions; Devices and Queue now stay in LiquidTouch.",
+    "Unified player opacity and artwork layout that stays below the header; settings remain saved across updates.",
+    "History Close sits at the top right; Quick Search hides the toolbar and adds adjustable background blur."
   ]
 }
