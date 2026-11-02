@@ -20,6 +20,15 @@ installation instructions, and enable update checks for future releases.
    follow the one-time setup below.
 
 
+## v1.9.4
+
+Persistent local listening history now has Unlimited, optional oldest-first caps,
+and a confirmed Clear history action. Hold cards or player artwork for touch
+context actions. Devices and Queue open in LiquidTouch. Now Playing uses one
+continuous header/body tint, and large artwork stays below the header.
+Quick Search hides the toolbar and has adjustable background blur in Appearance
+& glass. Settings and saved history are preserved across normal updates.
+
 ## Revised v1.9.2
 
 The revised v1.9.2 groups Settings into eight submenus. Swipe left to right to go
@@ -68,3 +77,10 @@ be older than the immediately preceding runtime update.
 For a bug report, include the LiquidTouch version, Spotify version, Windows
 version and steps to reproduce. Include a screenshot when it helps; omit account
 credentials and private configuration.
+
+## Ideas and recommendations
+
+Ideas, recommendations and suggestions are welcome. Open a
+[GitHub issue](https://github.com/OrbitalShift4/Spotify-LiquidTouch/issues) to share
+an idea or report a problem. For bugs, include your Spotify/Spicetify versions,
+screen size and text/interface scaling.
