@@ -77,10 +77,6 @@ runtime remains active, choose **Settings → Updates → Restore installed vers
 after reinstalling and confirm Restore. Settings, history and lyric timing stay
 saved. Older compatible releases such as v1.9.5 can still update normally.
 
-The new behaviors passed 23 Chromium suites against simulated Spotify services
-and were then confirmed working in Spotify by the user. [Full release notes](release-packages/v1.9.6.md)
-and [validation details](docs/revisions/v1.9.6-queue-validation.md).
-
 ## Install
 
 You need Spotify desktop and a working, compatible
