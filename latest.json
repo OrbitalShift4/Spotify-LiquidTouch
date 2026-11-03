@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "app": "LiquidTouch",
-  "version": "1.9.5",
-  "bundleURL": "./releases/LiquidTouch-Update-v1.9.5.json",
-  "sha256": "ab4fa5a60ec28d9b2765651f8e8483ceb97b1aebc3b6fc3378232e633aa7bd96",
+  "version": "1.9.6",
+  "bundleURL": "./releases/LiquidTouch-Update-v1.9.6.json",
+  "sha256": "c2fec96523c971217137b57b949307195c7f019ec9ef7a3c4b4c756ffee53a76",
   "summary": [
-    "Repaired full and Quick Search with client compatibility and native-view recovery.",
-    "Hold Backspace to keep erasing in normal, Quick and history search.",
-    "Card hold menus no longer drag artwork. Already on 1.9.5? Reinstall the revised full ZIP."
+    "Lyrics start hidden for each song; found lyrics appear automatically and manual toggles stay per song.",
+    "All numeric settings use percentages and 5% increments; Home keeps real recent playlists, albums and artists fresh.",
+    "Low-RAM mode cuts repeated player paints, background scans, animations and retained pages; consistent gestures and clean artwork."
   ]
 }

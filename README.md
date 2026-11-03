@@ -21,10 +21,10 @@ LiquidTouch provides the touch interface around it.
   columns, live search previews, entity detail pages and saved search-item cards.
 - **Touch controls:** single tap to play, double tap to explore, hold for context
   actions, swipe between tabs, swipe from the left edge to go Back, and pull
-  down for Quick Search. Gesture distances and animation speeds are adjustable.
+  down for Quick Search. Gesture distances and animation speeds use percentage controls in 5% steps.
 - **Now Playing:** an app-filling artwork view, playback/volume/seek controls,
   incoming track-artwork swipes, Spotify Connect devices and an owned queue panel.
-- **Lyrics:** optional synchronized lyrics, active-line tracking, tap-to-seek,
+- **Lyrics:** hidden until found for each song, with manual show/hide, synchronized lyrics, active-line tracking, tap-to-seek,
   alternate sources and per-song timing correction when available.
 - **Accessibility:** independent text/interface sizing, player text/control/lyric
   sizing, adjustable artwork, a local on-screen keyboard, Reduce Motion and
@@ -54,24 +54,26 @@ plays no audio and needs no account. **LiquidTouch-Preview.html** is the separat
 fictional-data fixture used for automated tests. Gallery catalog and artwork
 credits are in [the gallery page](docs/screenshots/README.md#music-and-artwork).
 
-## v1.9.5
+## v1.9.6 — Quality of life
 
-The revised build (`2026-11-03-r1`) repairs full/Quick Search, adds continuous
-Backspace deletion and prevents artwork dragging during card holds. Existing
-1.9.5 users must download the revised full ZIP and rerun the installer: the
-current updater only accepts higher versions. Settings/history retain their
-existing storage keys. This revision passed 12 simulated-host regression suites;
-live Spotify and browser interaction were unavailable. See the packaged
-`VALIDATION.md` for the exact checks and historical results.
+- **Lyrics per song:** start hidden, appear after successful lookup, and allow
+  manual show/hide even when no lyrics were found. Stale song responses are ignored.
+- **Consistent settings:** numeric sliders and plus/minus controls use percentages
+  in 5% steps, including timing, swipe distances, blur and rounding.
+- **Fresh Home:** a saved, deduplicated Recently played shelf follows actual
+  playlists, albums and artists without changing your route or scroll position.
+- **Low-RAM improvements:** fewer player-control repaints and background scans,
+  adaptive polling, smaller supplied artwork, less decoding, reduced effects
+  and no retained hidden page fragments. Actual PC performance remains unmeasured.
+- **Clear artwork:** artwork sizing is in Settings → Now Playing.
+- **Shared gestures:** edge Back, tab swipes, whole-player track swipes and
+  scroll-aware downward dismissal, with normal slider and keyboard input.
 
-
-This release centers the lyrics-off player, adds the history search keyboard,
-reveals incoming pages during swipes, anchors/animates hold menus, resolves
-Spotify’s Song Radio playlist with the selected track first, hardens the first
-search of a session and adds optional Low-RAM mode.
-
-[Full v1.9.5 notes](https://github.com/OrbitalShift4/Spotify-LiquidTouch/releases/tag/v1.9.5)
-include the update path and validation limits.
+Original and revised v1.9.5 installations can use the built-in updater normally;
+v1.9.6 is a higher version. Settings/history and custom feeds remain saved.
+The complete extension passed 23 DOM-host suites, the existing 12 search/touch
+controller suites and 7 installer tests. Live Spotify and Chromium rendering
+were unavailable. [Full release notes](release-packages/v1.9.6.md).
 
 ## Install
 

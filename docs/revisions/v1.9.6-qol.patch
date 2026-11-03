@@ -1,0 +1,874 @@
+--- a/LiquidTouch/source/liquid-touch-app.js
++++ b/LiquidTouch/source/liquid-touch-app.js
+@@ -1,10 +1,10 @@
+-// LiquidTouch 1.9.5 — MIT. Application source for the bundled runtime.
++// LiquidTouch 1.9.6 — MIT. Application source for the bundled runtime.
+ // Spotify keeps ownership of browsing, audio, authentication, and DRM.
+ (() => {
+   "use strict";
+ 
+-  const VERSION = "1.9.5";
+-  const BUILD = "2026-11-03-r1";
++  const VERSION = "1.9.6";
++  const BUILD = "2026-11-03-qol";
+   const LIVE_REPLACEMENT=Boolean(window.LiquidTouch?.version && window.LiquidTouch.version!==VERSION);
+   try { window.LiquidTouch?.destroy?.(); } catch (error) { console.warn("[LiquidTouch] Previous instance cleanup:", error); }
+   const STORE = "liquid-touch.preferences.v1";
+@@ -18,10 +18,10 @@
+   }
+   const DEFAULT_UPDATE_FEED = "https://raw.githubusercontent.com/OrbitalShift4/Spotify-LiquidTouch/main/latest.json";
+   const MOTION_CONTROLS = [["pageSpeed", "Pages and tabs", "navigation"], ["navSpeed", "Navigation selection", "navigation"], ["surfaceSpeed", "Menus, sheets and search", "navigation"], ["settingsPageSpeed", "Settings submenus", "navigation"], ["settingsBackSpeed", "Settings swipe Back finish", "navigation"], ["settingsCloseSpeed", "Settings swipe close finish", "navigation"], ["springSpeed", "Cancelled swipe spring-back", "navigation"], ["playerOpenSpeed", "Now Playing expansion", "player"], ["playerCloseSpeed", "Now Playing collapse", "player"], ["trackSwipeSpeed", "Track artwork swipes", "player"], ["trackChangeSpeed", "Track details and cover change", "player"], ["miniPlayerSpeed", "Mini-player return", "player"], ["lyricsShowSpeed", "Lyrics switching on", "lyrics"], ["lyricsHideSpeed", "Lyrics switching off", "lyrics"], ["lyricsLayoutSpeed", "Artwork and controls reflow", "lyrics"], ["lyricLineSpeed", "Active lyric highlight", "lyrics"], ["lyricScrollSpeed", "Lyric auto-scroll", "lyrics"], ["keySpeed", "Keyboard key feedback", "feedback"], ["buttonSpeed", "Button press and hover", "feedback"], ["toggleSpeed", "Switch knob movement", "feedback"], ["windowSpeed", "Window button feedback", "feedback"], ["spinnerSpeed", "Search loading spinner", "feedback"]];
+-  const GESTURE_CONTROLS = [["backThreshold", "Page / edge Back", 80, 32, 240], ["settingsBackThreshold", "Settings swipe Back", 80, 32, 240], ["settingsCloseThreshold", "Settings swipe down to close", 72, 32, 240], ["sheetCloseThreshold", "History / update sheet dismissal", 72, 32, 240], ["playerOpenThreshold", "Expand Now Playing", 72, 32, 240], ["playerCloseThreshold", "Collapse Now Playing", 72, 32, 240], ["playerTrackThreshold", "Expanded-player track skip", 40, 16, 200], ["miniTrackThreshold", "Mini-player track skip", 76, 32, 240], ["quickOpenThreshold", "Open quick search", 64, 32, 240], ["quickCloseThreshold", "Close quick search", 64, 32, 240], ["tabThreshold", "Home / Search / Library swipe", 80, 32, 240]];
++  const GESTURE_CONTROLS = [["backThreshold", "Page / edge Back", 80, 32, 240], ["settingsBackThreshold", "Settings swipe Back", 80, 32, 240], ["settingsCloseThreshold", "Settings swipe down to close", 72, 32, 240], ["sheetCloseThreshold", "History / update sheet dismissal", 72, 32, 240], ["playerOpenThreshold", "Expand Now Playing", 72, 32, 240], ["playerCloseThreshold", "Collapse Now Playing", 72, 32, 240], ["playerTrackThreshold", "Expanded-player track skip", 80, 32, 240], ["miniTrackThreshold", "Mini-player track skip", 80, 32, 240], ["quickOpenThreshold", "Open quick search", 72, 32, 240], ["quickCloseThreshold", "Close quick search", 72, 32, 240], ["tabThreshold", "Home / Search / Library swipe", 80, 32, 240]];
+   const DEFAULTS = Object.freeze({
+     motionSpeed:100,...Object.fromEntries(MOTION_CONTROLS.map(([key])=>[key,100])),...Object.fromEntries(GESTURE_CONTROLS.map(([key,,value])=>[key,value])),
+-    enabled: true, palette: "glass", size: "comfort", keyboard: true,
++    touchScale:100, enabled: true, palette: "glass", size: "comfort", keyboard: true,
+     lite: false, lowMemory: false, reduceMotion: false, startPlayer: false, updateChecks: true, updateFeed: DEFAULT_UPDATE_FEED, homeClock: false, clockFormat: '24', historySongLimit: 0, quickSearchBlur: 14,
+     textScale: 120, uiScale: 100, playerTextScale: 100, playerLyricsScale: 100, playerControlScale: 100, cardTapDelay: 400, keyboardHeight: 145, artworkSize: 135, glassOpacity: 35, headerOpacity: null, navOpacity: null, miniOpacity: null, playerHeaderOpacity: null, lyricsOpacity: null, settingsOpacity: null, historyOpacity: null, adaptive: true, windowControls: true, rounding: 32, welcome: "", welcomeSubtitle: "A little closer to the music.", lyrics: true, lyricsFallback: true, lyricsTextFallback: true
+   });
+@@ -35,6 +35,19 @@
+     ['settingsOpacity','--lt-settings-opacity','Entire Settings window'],
+     ['historyOpacity','--lt-history-opacity','Entire history window']
+   ];
++  // Preferences retain their physical units for compatible storage. All numeric
++  // settings present a percentage, relative to the documented baseline.
++  const PERCENT_SETTINGS = Object.freeze({
++    textScale:[100,100,200],uiScale:[100,100,140],touchScale:[100,100,150],
++    playerTextScale:[100,75,200],playerLyricsScale:[100,75,200],playerControlScale:[100,75,180],
++    keyboardHeight:[100,100,180],artworkSize:[100,60,200],glassOpacity:[100,0,100],
++    rounding:[32,40,175],quickSearchBlur:[20,0,200],cardTapDelay:[400,50,175],
++    motionSpeed:[100,25,400],...Object.fromEntries(MOTION_CONTROLS.map(([key])=>[key,[100,25,400]])),
++    ...Object.fromEntries(OPACITY_PANELS.map(([key])=>[key,[100,0,100]])),
++    ...Object.fromEntries(GESTURE_CONTROLS.map(([key,,base,lo,hi])=>[key,[base,Math.ceil(lo/base*20)*5,Math.floor(hi/base*20)*5]]))
++  });
++  function settingPercent(key,value){const [base,lo,hi]=PERCENT_SETTINGS[key];return clamp(Math.round(value/base*20)*5,lo,hi);}
++  function settingValue(key,percent){const [base,lo,hi]=PERCENT_SETTINGS[key];return Math.round(clamp(Math.round(percent/5)*5,lo,hi)*base)/100;}
+   const paths = {
+     home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
+     search: '<circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/>',
+@@ -94,6 +107,10 @@
+     for(const key of ['settingsOpacity','historyOpacity'])if(stored?.[key]===undefined && typeof stored?.sheetOpacity==='number' && Number.isFinite(stored.sheetOpacity))value[key]=clamp(Math.round(stored.sheetOpacity),0,100);
+     for (const key of ["welcome","welcomeSubtitle"]) if(typeof stored?.[key]==="string")value[key]=stored[key].slice(0,160);
+     if(typeof stored?.updateFeed==='string' && stored.updateFeed.trim())value.updateFeed=stored.updateFeed.trim().slice(0,2000);
++    if(typeof stored?.touchScale==='number' && Number.isFinite(stored.touchScale))value.touchScale=stored.touchScale;
++    else value.touchScale=value.size==='large' ? 115 : 100;
++    // Quantize once on load, including legacy milliseconds and pixel distances.
++    for(const key of Object.keys(PERCENT_SETTINGS))if(value[key]!==null)value[key]=settingValue(key,settingPercent(key,value[key]));
+     return value;
+   }
+   function read(fn, fallback) { try { const v = fn(); return v ?? fallback; } catch { return fallback; } }
+@@ -214,6 +231,9 @@
+       this.fastPointerClicks=new Map();
+       this.browsePages=new Map();this.routeRequests=new Map();this.navigationSerial=0;
+       this.detailPages=new Map();
++      this.recentHome=this.loadRecords('recent-contexts',24).filter(row=>['playlist','album','artist','collection'].includes(row.type));
++      this.recentHomeFlights=new Map();this.homeRecentVersion=0;this.lyricOverride=null;
++      this.buttonPaintState=new Map();this.playerPaintCount=0;this.progressPaintCount=0;
+ 
+     }
+     later(fn, delay) {
+@@ -280,7 +300,7 @@
+           ${button("playerSettings", "LiquidTouch settings", "settings")}
+         </header>
+         <div class="lt-np-layout">
+-          <div class="lt-np-record"><div class="lt-art-area" id="lt-art-swipe"><div class="lt-art-frame"><img id="lt-art" alt="Album artwork" hidden>${button('artworkSettings','Adjust artwork size','art','class="lt-art-size-button" title="Artwork size"')}</div></div>
++          <div class="lt-np-record"><div class="lt-art-area" id="lt-art-swipe"><div class="lt-art-frame"><img id="lt-art" alt="Album artwork" hidden></div></div>
+           <div class="lt-np-controls">
+             <div class="lt-np-track"><div><h1 id="lt-np-title">Nothing playing yet</h1><p id="lt-np-artist">Pick a song to get started</p></div>${button("toggleHeart", "Save to your library", "plus", 'aria-pressed="false"')}</div>
+             <input class="lt-range" id="lt-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Playback position" disabled>
+@@ -306,14 +326,17 @@
+       this.settings.className = "lt-dialog lt-glass";
+       this.settings.setAttribute("aria-labelledby", "lt-settings-title");
+       const toggle = (key, label, help) => `<div class="lt-setting"><div><label id="lt-label-${key}">${label}</label><small>${help}</small></div><button type="button" class="lt-toggle" role="switch" data-pref="${key}" aria-checked="false" aria-labelledby="lt-label-${key}"></button></div>`;
+-      const scale = (key, label, help, min, max, step) => `<div class="lt-setting lt-setting-range"><div><label for="lt-${key}">${label}</label><small>${help}</small></div><div class="lt-scale-control"><button type="button" data-adjust="${key}" data-delta="-${step}" aria-label="Decrease ${label.toLowerCase()}">−</button><input id="lt-${key}" class="lt-range" type="range" min="${min}" max="${max}" step="${step}" data-pref="${key}" aria-label="${label}"><output id="lt-${key}-value" for="lt-${key}"></output><button type="button" data-adjust="${key}" data-delta="${step}" aria-label="Increase ${label.toLowerCase()}">+</button></div></div>`;
++      const scale = (key, label, help) => {
++        const [,min,max]=PERCENT_SETTINGS[key];
++        return `<div class="lt-setting lt-setting-range"><div><label for="lt-${key}">${label}</label><small>${help}</small></div><div class="lt-scale-control"><button type="button" data-adjust="${key}" data-delta="-5" aria-label="Decrease ${label.toLowerCase()} by 5 percent">−</button><input id="lt-${key}" class="lt-range" type="range" min="${min}" max="${max}" step="5" data-pref="${key}" aria-label="${label}"><output id="lt-${key}-value" for="lt-${key}"></output><button type="button" data-adjust="${key}" data-delta="5" aria-label="Increase ${label.toLowerCase()} by 5 percent">+</button></div></div>`;
++      };
+       const historyControl=()=>`<label class="lt-history-limit">Saved song limit<select data-history-limit aria-label="Saved history song limit">${[0,100,500,1000,5000,10000].map(limit=>`<option value="${limit}"${limit===this.prefs.historySongLimit ? ' selected' : ''}>${limit ? limit.toLocaleString()+' plays' : 'Unlimited'}</option>`).join('')}</select></label>`;
+       // Keep related settings together; pages mount once and retain their values.
+       const settingsSections = [
+         {id:"accessibility",title:"Text & accessibility",subtitle:"Size, spacing and motion",glyph:"settings",content:`
+           ${scale("textScale","Text size","Larger type across browsing, the player, and menus.",100,200,10)}
+           ${scale("uiScale","Interface size","Roomier buttons, spacing, and text fields.",100,140,10)}
+-          <div class="lt-setting"><div><label for="lt-size">Touch controls</label><small>Comfort: 48 px. Large: 56 px.</small></div><select id="lt-size" data-pref="size"><option value="comfort">Comfort</option><option value="large">Large</option></select></div>
++          ${scale("touchScale","Touch control size","100% is the standard touch target. Increase in 5% steps for larger controls.")}
+           ${toggle("reduceMotion", "Reduce motion", "Keep the shine. Skip the movement.")}
+         `},
+         {id:"appearance",title:"Appearance & glass",subtitle:"Tint, opacity and rounded corners",glyph:"spark",content:`
+@@ -323,22 +346,22 @@
+             <button type="button" class="lt-pill" data-action="resetOpacity">Use universal for all panels</button>
+             ${OPACITY_PANELS.map(([key,,label])=>`<section class="lt-opacity-panel"><div class="lt-opacity-mode"><span>${label}</span><span>Custom</span><button type="button" class="lt-toggle" role="switch" data-opacity-override="${key}" aria-checked="false" aria-label="Custom opacity for ${label.toLowerCase()}"></button></div>${scale(key,label+' opacity','Follow universal, or enable Custom above.',0,100,1)}</section>`).join('')}
+           </details>
+-          ${scale("quickSearchBlur","Quick Search background blur","Keep Quick Search sharp while softening the page behind it. 0 px turns the blur off.",0,40,1)}
+-          ${scale("rounding","Corner rounding","Round the cards, fields, menus, and player surfaces.",12,56,2)}
++          ${scale("quickSearchBlur","Quick Search background blur","100% is standard blur; 0% turns background blur off.",0,40,1)}
++          ${scale("rounding","Corner rounding","100% is standard corner rounding. Adjust every surface in 5% steps.",12,56,2)}
+           ${toggle("adaptive", "Artwork atmosphere", "Match backgrounds and glass to the current track’s artwork.")}
+           ${toggle("windowControls", "Glass window buttons", "Matching minimize, maximize, and close controls when supported.")}
+           ${toggle("lite", "Lighter glass", "Turn off blur for quieter, cooler mini PCs. Your opacity setting still applies.")}
+-          ${toggle("lowMemory", "Low-RAM mode", "Keep fewer hidden pages and cached images, reduce preloading, and simplify background effects. Some pages may reload; saved history and settings stay intact.")}
++          ${toggle("lowMemory", "Low-RAM mode", "Use simpler surfaces, skip animations and preloading, reduce background scans and repaint only changed controls. Hidden pages are released; saved history and settings stay intact.")}
+         `},
+         {id:"player",title:"Now Playing",subtitle:"Artwork, text and controls",glyph:"play",content:`
+-          ${scale("artworkSize","Player artwork size","Shrink or enlarge the cover, with lyrics on or off. Also available from the picture button on the artwork.",60,200,5)}
++          ${scale("artworkSize","Player artwork size","Shrink or enlarge the cover, with lyrics on or off. Artwork controls live here in Settings.",60,200,5)}
+           ${scale("playerTextScale","Now Playing text size","Scale song details without changing lyrics or other pages.",75,200,5)}
+           ${scale("playerControlScale","Now Playing control size","Scale playback buttons, icons and sliders relative to the app interface. Touch targets stay at least 44 px.",75,180,5)}
+           ${toggle("startPlayer", "Open in Now Playing", "Start on the expanded player next time Spotify opens.")}
+         `},
+         {id:"lyrics",title:"Lyrics",subtitle:"Size, sources and timing",glyph:"queue",content:`
+           ${scale("playerLyricsScale","Lyrics text size","Scale lyric lines and their panel text independently of song details.",75,200,5)}
+-          ${toggle("lyrics", "Live lyrics beside artwork", "Show lyrics beside the artwork and compact controls. Tap a timed line to seek.")}
++          ${toggle("lyrics", "Automatically show found lyrics", "Each song starts with lyrics hidden. Show them when lyrics load for that song. The player’s Lyrics button can show or hide them manually for the current song.")}
+           ${toggle("lyricsFallback", "Broader lyric lookup", "Try LRCLIB exact lookup and recording-aware search when Spotify has no timed lyrics. No account is sent.")}
+           ${toggle("lyricsTextFallback", "Additional text lyrics", "If no lyrics were found, also try lyrics.ovh. Text-only lyrics are readable but cannot seek. Uses track and artist names only.")}
+           <div class="lt-setting"><div><label>Current song’s lyric timing</label><small>Correct a recording without changing other songs. Positive adjustment shows lyrics earlier.</small></div><button type="button" class="lt-pill" data-action="openLyricTiming">Adjust</button></div>
+@@ -350,7 +373,7 @@
+           <div class="lt-setting"><div><label for="lt-clockFormat">Clock format</label><small>Choose 12-hour time with AM/PM or 24-hour time.</small></div><select id="lt-clockFormat" data-pref="clockFormat"><option value="12">12-hour</option><option value="24">24-hour</option></select></div>
+         `},
+         {id:"touch",title:"Touch & keyboard",subtitle:"Card taps and search keyboard",glyph:"keyboard",content:`
+-          ${scale("cardTapDelay","Card tap timing","Single-tap playback waits this long for a second tap. Double taps open without playing.",200,700,25)}
++          ${scale("cardTapDelay","Card tap timing","100% is the standard double-tap window. Lower percentages start playback sooner; double taps open without playing.",200,700,25)}
+           ${toggle("keyboard", "Built-in keyboard", "A local English keyboard for search. Turn off to use your system keyboard, including Arabic.")}
+           ${scale("keyboardHeight","Keyboard height","Taller keys without widening the keyboard. Height adapts to leave the search field accessible.",100,180,5)}
+         `},
+@@ -361,8 +384,8 @@
+           <button type="button" class="lt-pill" data-action="resetMotion">Restore animation speeds</button>
+         `},
+         {id:"gestures",title:"Swipe thresholds",subtitle:"Distance needed to confirm gestures",glyph:"settings",content:`
+-          <p class="lt-note">Choose how far to swipe before releasing to confirm. Lower values need shorter pulls. Text fields, sliders and normal scrolling keep their usual behavior.</p>
+-          ${GESTURE_CONTROLS.map(([key,label,,lo,hi])=>scale(key,label,'Swipe this far, then release to confirm.',lo,hi,4)).join('')}
++          <p class="lt-note">100% is the standard distance for each gesture. Lower percentages need shorter swipes. Left-edge Back, tabs and player track swipes follow the same rules everywhere; fields, sliders and vertical scrolling remain available.</p>
++          ${GESTURE_CONTROLS.map(([key,label,,lo,hi])=>scale(key,label,'100% is the standard distance; adjust in 5% steps.',lo,hi,4)).join('')}
+           <button type="button" class="lt-pill" data-action="resetGestures">Restore swipe thresholds</button>
+         `},
+         {id:"updates",title:"Updates",subtitle:"Check, import and release notes",glyph:"restore",content:`
+@@ -435,17 +458,8 @@
+       this.later(()=>this.queueReleaseNotes(),1000);this.later(()=>this.maybeCheckUpdates(),1800);
+       if (this.prefs.startPlayer && this.enabled) void this.showPlayer();
+       this.syncLyricClock();
+-      this.interval = setInterval(() => {
+-        if (this.enabled && !document.hidden) {
+-          if (this.observedHostPath !== this.history.location?.pathname)this.acceptHostRoute(this.history.location?.pathname || '/');
+-          this.render();
+-          if(Date.now()-(this.lastGreetingCheck || 0)>30000)this.refreshGreeting();
+-          if(this.prefs.homeClock)this.refreshHomeClock();
+-          this.refreshPlatformState();
+-          if(this.utility.open && this.utilityState?.kind==='devices' && !this.utilityBusy && !this.deviceReadBusy && !this.pointerHeld && Date.now()-(this.lastDeviceRefresh || 0)>5000)void this.refreshDeviceList(this.utilityToken);
+-          if (++this.chromeAttempts % 4 === 0){void this.syncWindowChrome();this.flushReleasePrompt();this.maybeCheckUpdates();}
+-        }
+-      }, 500);
++      this.schedulePlayerTick();
++      /* Adaptive polling supplements Spotify's immediate playback events. */
+       if (this.S.Menu?.Item) {
+         // Profile-menu APIs vary independently of playback. This convenience
+         // entry must never prevent the entire touch interface from starting.
+@@ -457,8 +471,23 @@
+         } catch (error) { console.warn("[LiquidTouch] Optional profile menu unavailable:", error); }
+       }
+     }
++    schedulePlayerTick(){
++      clearTimeout(this.interval);
++      if(this.destroyed)return;
++      const active=this.enabled && !document.hidden;
++      const delay=!active ? 5000 : this.prefs.lowMemory ? (this.nowPlaying?.open ? 750 : 1500) : 500;
++      this.interval=setTimeout(()=>{if(this.destroyed)return;if(this.enabled && !document.hidden){
++        if(this.observedHostPath!==this.history.location?.pathname)this.acceptHostRoute(this.history.location?.pathname || '/');
++        this.render();
++        if(Date.now()-(this.lastGreetingCheck || 0)>30000)this.refreshGreeting();
++        this.refreshPlatformState();
++        if(this.nativeDirty && !this.nowPlaying.open && !this.pointerHeld){this.nativeDirty=false;this.queueCatalogRefresh();}
++        if(this.utility.open && this.utilityState?.kind==='devices' && !this.utilityBusy && !this.deviceReadBusy && !this.pointerHeld && Date.now()-(this.lastDeviceRefresh || 0)>5000)void this.refreshDeviceList(this.utilityToken);
++        if(Date.now()-(this.lastMaintenanceAt || 0)>10000){this.lastMaintenanceAt=Date.now();void this.syncWindowChrome();this.flushReleasePrompt();this.maybeCheckUpdates();}
++      }this.schedulePlayerTick();},delay);
++    }
+     getRoutePath(){return this.routePath || this.history.location?.pathname || '/';}
+-    motionAllowed(){return !this.prefs.reduceMotion && !matchMedia('(prefers-reduced-motion: reduce)').matches;}
++    motionAllowed(){return !this.prefs.lowMemory && !this.prefs.reduceMotion && !matchMedia('(prefers-reduced-motion: reduce)').matches;}
+     stopMotion(){
+       this.clearGestureMotion(false);this.clearTrackPeek(false);this.clearKeyFeedback();cancelAnimationFrame(this.lyricScrollFrame);
+       this.cancelPlayerPresentation();if(this.nowPlaying?.open){this.setPlayerReveal(1);this.playerPhase='open';}
+@@ -470,7 +499,7 @@
+     applyMotionPreferences(){
+       for(const [property,base,key] of [['--lt-button-time',80,'buttonSpeed'],['--lt-toggle-time',160,'toggleSpeed'],['--lt-lyric-time',100,'lyricLineSpeed'],['--lt-spinner-time',800,'spinnerSpeed']])document.body.style.setProperty(property,this.motionDuration(base,key)+'ms');
+       for(const key of ['motionSpeed',...MOTION_CONTROLS.map(([key])=>key),...GESTURE_CONTROLS.map(([key])=>key)]){
+-        const input=this.$('lt-'+key);input.value=String(this.prefs[key]);const unit=key.endsWith('Threshold') ? 'px' : '%';this.$('lt-'+key+'-value').textContent=this.prefs[key]+unit;input.setAttribute('aria-valuetext',this.prefs[key]+(unit==='px' ? ' pixels' : ' percent'));this.paintRange(input);
++        this.paintSetting(key);
+       }
+     }
+     playMotion(target,frames,options={}){
+@@ -807,7 +836,7 @@
+       if(horizontal && dx>0 && g.dialog)return {kind:'back',axis:'x',threshold:this.prefs.backThreshold,label:'go back'};
+       if(horizontal && dx>0 && g.edge)return {kind:'back',axis:'x',threshold:this.prefs.backThreshold,label:'go back'};
+       if(g.dialog && g.sheetPull && vertical && dy>0)return {kind:'sheetClose',axis:'y',threshold:g.dialog===this.settings ? this.prefs.settingsCloseThreshold : this.prefs.sheetCloseThreshold,label:'close '+(g.dialog===this.settings ? 'Settings' : 'history')};
+-      if(horizontal && (g.mini || g.player && g.art)){
++      if(horizontal && (g.mini || g.player)){
+         const method=dx<0 ? 'next' : 'back';if(this.nowPlaying.querySelector(`[data-action="${method}"]`).disabled)return null;
+         return {kind:'track',axis:'x',threshold:g.player ? this.prefs.playerTrackThreshold : this.prefs.miniTrackThreshold,label:dx<0 ? 'play next track' : 'play previous track',method};
+       }
+@@ -818,7 +847,7 @@
+         if(dy>0 && (g.toolbar || (this.activeScroll()?.scrollTop || 0)<=1))return {kind:'quickOpen',axis:'y',threshold:this.prefs.quickOpenThreshold,label:'open quick search'};
+       }
+       if(horizontal && !g.player && !g.dialog){
+-        if(dx>0 && !g.nav && (g.edge || document.body.dataset.ltCustomPage===''))return {kind:'back',axis:'x',threshold:this.prefs.backThreshold,label:'go back'};
++        if(dx>0 && !g.nav && g.edge)return {kind:'back',axis:'x',threshold:this.prefs.backThreshold,label:'go back'};
+         const tabs=['home','search','library'],index=tabs.indexOf(document.body.dataset.ltPage),next=clamp(index+(dx<0 ? 1 : -1),0,2);
+         if(index!==next)return {kind:'tab',axis:'x',threshold:this.prefs.tabThreshold,label:'open '+['Home','Search','Your Library'][next],tab:tabs[next]};
+         return {kind:'boundary',axis:'x',threshold:Infinity,label:['Home','Search','Your Library'][next]};
+@@ -917,19 +946,26 @@
+       this.listen(document,'click',e=>{if(!e.target.closest('#lt-search-preview,#lt-search-form,#lt-quick-search'))this.hideSearchPreview();},{capture:true});
+       this.bindGestures();
+       this.listen(matchMedia('(prefers-reduced-motion: reduce)'),'change',()=>{if(!this.motionAllowed())this.stopMotion();});
+-      this.listen(document,'visibilitychange',()=>{this.syncLyricClock();if(document.hidden)cancelAnimationFrame(this.lyricScrollFrame);else{this.refreshGreeting();if(this.nowPlaying.open)this.updateLyricPosition();}});
++      this.listen(document,'visibilitychange',()=>{this.syncLyricClock();this.schedulePlayerTick();if(document.hidden)cancelAnimationFrame(this.lyricScrollFrame);else{this.refreshGreeting();this.render();this.queueCatalogRefresh();if(this.nowPlaying.open)this.updateLyricPosition();}});
+       this.listen(this.$('lt-lyrics-panel'),'wheel',()=>{this.lyricScrollUntil=Date.now()+5000;cancelAnimationFrame(this.lyricScrollFrame);},{passive:true});
+       this.listen(this.$('lt-lyrics-panel'),'touchstart',()=>{this.lyricScrollUntil=Date.now()+5000;cancelAnimationFrame(this.lyricScrollFrame);},{passive:true});
+       this.imageObserver=window.IntersectionObserver ? new IntersectionObserver(entries=>{for(const item of entries)if(item.isIntersecting){this.imageObserver.unobserve(item.target);this.queueArtwork(item.target.dataset.uri);}},{root:this.browse,rootMargin:'200px'}) : null;
+       if(!this.previewMode)for(const card of this.browse.querySelectorAll('.lt-card[data-needs-art]'))this.imageObserver?.observe(card);
+     }
++    gestureScroller(target,boundary){
++      for(let current=target;current && current!==boundary?.parentElement;current=current.parentElement){
++        if(current.scrollHeight>current.clientHeight+2 && /auto|scroll/.test(getComputedStyle(current).overflowY))return current;
++        if(current===boundary)break;
++      }
++      return null;
++    }
+     bindGestures(){
+       this.listen(window,'pointerdown',e=>{
+         this.settingsGestureToken=(this.settingsGestureToken || 0)+1;this.settingsGestureRunning=false;
+         this.gestureConsumedUntil=0;this.suppressOpenUntil=0;this.clearGestureMotion(false);this.activeGesture=null;
+-        if(!this.enabled || e.pointerType==='mouse' || e.isPrimary===false || e.target.closest('input,select,textarea,[contenteditable="true"],.lt-caption-buttons,.lt-keyboard,.lt-search-preview'))return;
++        if(!this.enabled || e.pointerType==='mouse' || e.isPrimary===false || e.target.closest('input,select,textarea,[contenteditable="true"],.lt-caption-buttons,.lt-keyboard,#lt-lyrics-menu'))return;
+         const dialog=this.utility.open ? this.utility : this.releaseDialog.open ? this.releaseDialog : this.settings.open ? this.settings : this.historyPage.open ? this.historyPage : null;
+-        const edge=e.clientX<=Math.min(120,Math.max(64,innerWidth*.12)),sheetPull=Boolean(e.target.closest('.lt-sheet-header,.lt-np-header')) || dialog===this.settings && this.settings.querySelector('.lt-settings-content').scrollTop<=1;
++        const edge=e.clientX<=Math.min(80,Math.max(40,innerWidth*.06)),scroll=this.gestureScroller(e.target,dialog || (this.nowPlaying.open ? this.nowPlaying : this.browse)),atTop=!scroll || scroll.scrollTop<=1,sheetPull=Boolean(e.target.closest('.lt-sheet-header,.lt-np-header')) || atTop;
+         if(dialog && !sheetPull && !edge && e.target===dialog)return;
+         const header=this.shell.querySelector('.lt-header').getBoundingClientRect();
+         const playerTop=Math.min(220,Math.max(140,innerHeight*.25,this.$('lt-np-header').getBoundingClientRect().bottom+64));
+@@ -937,11 +973,11 @@
+           startReveal:this.playerReveal ?? 1,openReveal:clamp(1-this.shell.querySelector('.lt-mini').getBoundingClientRect().top/innerHeight,0,1),
+           top:e.clientY<=Math.min(280,Math.max(180,innerHeight*.3,header.bottom+96,this.quickOpen ? this.prefs.quickCloseThreshold+40 : 0)),
+           edge,sheetPull,
+-          mini:Boolean(e.target.closest('#lt-mini-open')),art:Boolean(e.target.closest('#lt-art-swipe')),
++          mini:Boolean(e.target.closest('.lt-mini')),art:Boolean(e.target.closest('#lt-art-swipe')),
+           nav:Boolean(e.target.closest('.lt-nav')),
+           toolbar:Boolean(e.target.closest('.lt-header')) || e.clientY<=header.bottom+36,
+-          playerPull:Boolean(e.target.closest('.lt-np-header,.lt-art-area')) || this.nowPlaying.open && e.clientY<=playerTop,
+-          slop:e.target.closest('.lt-nav,.lt-header,.lt-np-header,.lt-sheet-header') ? 26 : 14};
++          playerPull:Boolean(e.target.closest('.lt-np-header')) || atTop,
++          slop:14};
+       },{capture:true});
+       this.listen(window,'pointermove',e=>{
+         const g=this.activeGesture;if(!g || e.pointerId!==g.id)return;
+@@ -949,6 +985,8 @@
+         if(Math.hypot(dx,dy)<=g.slop){if(g.intent)this.showGestureMotion(g,g.intent,dx,dy);return;}
+         const intent=this.gestureIntent(g,dx,dy);
+         if(!intent){if(g.intent){this.cancelPlayerGesture(g);g.playerPreview=false;g.intent=null;this.clearGestureMotion(true);}return;}
++        if(g.intent && intent.axis!==g.intent.axis)return;
++        if(!g.intent){this.cancelHold();this.cancelPendingCardTap();}
+         g.intent=intent;this.showGestureMotion(g,intent,dx,dy);
+         if((intent.axis==='x' || intent.kind==='playerOpen' || intent.kind==='playerClose') && e.cancelable)e.preventDefault();
+       },{capture:true,passive:false});
+@@ -960,9 +998,9 @@
+       this.listen(window,'pointercancel',()=>{const g=this.activeGesture;this.activeGesture=null;this.cancelPlayerGesture(g);this.clearGestureMotion(true);},{capture:true});
+       this.listen(window,'blur',()=>{const g=this.activeGesture;this.activeGesture=null;this.cancelPlayerGesture(g,false);this.clearGestureMotion(false);});
+       this.listen(window,'pointerup',e=>{
+-        const g=this.activeGesture;this.activeGesture=null;if(!g || g.id!==e.pointerId){this.clearGestureMotion(false);return;}
++        const g=this.activeGesture;if(g && g.id!==e.pointerId)return;this.activeGesture=null;if(!g){this.clearGestureMotion(false);return;}
+         const dx=e.clientX-g.x,dy=e.clientY-g.y,intent=this.gestureIntent(g,dx,dy),amount=intent?.axis==='x' ? Math.abs(dx) : Math.abs(dy);
+-        if(!intent || amount<=g.slop){this.cancelPlayerGesture(g);this.clearGestureMotion(Boolean(g.intent));return;}
++        if(!intent || amount<=g.slop || g.intent && intent.axis!==g.intent.axis){this.cancelPlayerGesture(g);this.clearGestureMotion(Boolean(g.intent));return;}
+         e.preventDefault();e.stopImmediatePropagation();
+         if(amount>=intent.threshold && Date.now()-g.at<2500)this.commitGesture(g,intent,dx);
+         else{this.cancelPlayerGesture(g);this.clearGestureMotion(true);this.gestureConsumedUntil=Date.now()+700;this.pointerHeld=false;}
+@@ -1226,8 +1264,18 @@
+       }
+       throw new Error('No matching lyrics');
+     }
++    lyricsVisible(){
++      if(this.lyricOverride!==null && this.lyricOverride!==undefined)return this.lyricOverride;
++      return Boolean(this.prefs.lyrics && this.lyricsLoadedURI===this.lastURI && this.lyricState==='ready' && this.lyricLines.length);
++    }
++    lyricsLookupAllowed(){return this.prefs.lyrics || this.lyricOverride===true;}
++    resetSongLyrics(){
++      this.lyricsToken++;this.lyricsAbort?.abort();this.lyricsInFlight=null;this.lyricOverride=null;
++      this.lyricLines=[];this.lyricIndex=-2;this.lyricsLoadedURI=null;this.lyricInstrumental=false;this.lyricState='idle';this.matchLyricLine=false;this.lyricSource='spotify';this.lyricProvider='';
++      this.paintLyrics();this.applyLyricsLayout();
++    }
+     async loadLyrics(force=false){
+-      const uri=this.lastURI;if(!this.prefs.lyrics || !/^spotify:track:[\w-]+$/.test(uri || ''))return;
++      const uri=this.lastURI;if(!this.lyricsLookupAllowed() || !/^spotify:track:[\w-]+$/.test(uri || ''))return;
+       if(!force && (this.lyricsLoadedURI===uri || this.lyricsInFlight===uri))return;
+       this.lyricsAbort?.abort();const abort=new AbortController();this.lyricsAbort=abort;
+       const token=++this.lyricsToken;this.lyricsInFlight=uri;this.lyricState='loading';this.paintLyrics();
+@@ -1241,7 +1289,7 @@
+             const lines=(data?.lines || []).map(line=>({text:cleanText(line.words,1000),at:timed ? number(line.startTimeMs,-1) : -1})).filter(line=>line.text && (!timed || line.at>=0));
+             if(lines.length)lyrics={lines:timed ? lines.sort((a,b)=>a.at-b.at) : lines,timed,source:'spotify',provider:cleanText(data.providerDisplayName || data.provider,80) || 'Spotify'};
+           }catch{ /* Spotify may not provide lyrics for this recording/session. */ }
+-          if(token!==this.lyricsToken || this.destroyed || !this.prefs.lyrics)return;
++          if(token!==this.lyricsToken || this.destroyed || !this.lyricsLookupAllowed())return;
+           if((!lyrics || !lyrics.timed) && this.prefs.lyricsFallback){
+             this.$('lt-lyrics-status').textContent='Searching more lyric sources…';
+             const timer=setTimeout(()=>abort.abort(),7500);
+@@ -1250,12 +1298,12 @@
+           if(!lyrics)throw new Error('Lyrics unavailable');
+           if(lyrics.lines.length || lyrics.instrumental){this.lyricsCache.set(uri,lyrics);if(this.lyricsCache.size>(this.prefs.lowMemory ? 4 : 32))this.lyricsCache.delete(this.lyricsCache.keys().next().value);}
+         }
+-        if(this.destroyed || !this.prefs.lyrics || token!==this.lyricsToken || uri!==this.lastURI)return;
++        if(this.destroyed || !this.lyricsLookupAllowed() || token!==this.lyricsToken || uri!==this.lastURI)return;
+         this.lyricsLoadedURI=uri;this.lyricLines=lyrics.lines;this.lyricTimed=lyrics.timed;this.lyricProvider=lyrics.provider;this.lyricSource=lyrics.source || (lyrics.provider==='LRCLIB' ? 'lrclib' : 'spotify');this.matchLyricLine=false;
+         this.lyricInstrumental=lyrics.instrumental;this.lyricState=lyrics.lines.length ? 'ready' : 'empty';this.lyricIndex=-2;
+-        this.paintLyrics();this.updateLyricPosition();
++        this.paintLyrics();this.applyLyricsLayout();this.updateLyricPosition();
+       }catch{
+-        if(!this.destroyed && token===this.lyricsToken && uri===this.lastURI){this.lyricsLoadedURI=uri;this.lyricLines=[];this.lyricState='unavailable';this.paintLyrics();}
++        if(!this.destroyed && token===this.lyricsToken && uri===this.lastURI){this.lyricsLoadedURI=uri;this.lyricLines=[];this.lyricState='unavailable';this.paintLyrics();this.applyLyricsLayout();}
+       }finally{if(token===this.lyricsToken)this.lyricsInFlight=null;}
+     }
+     loadLyricOffsets(){
+@@ -1300,7 +1348,7 @@
+     }
+     updateTimingControls(){
+       if(!this.$?.('lt-timing-value'))return;
+-      const offset=this.lyricOffset(),ready=this.prefs.lyrics && this.lyricTimed && this.lyricLines.length>0 && this.lyricState==='ready';
++      const offset=this.lyricOffset(),ready=this.lyricsVisible() && this.lyricTimed && this.lyricLines.length>0 && this.lyricState==='ready';
+       this.$('lt-timing-value').textContent=offset ? `${(Math.abs(offset)/1000).toFixed(2)} s ${offset>0 ? 'earlier' : 'later'}` : 'Original timing';
+       this.$('lt-timing-note').textContent='Saved for this recording.';
+       this.$('lt-timing-help').textContent=this.matchLyricLine ? 'Tap the line you hear now. This adjusts timing without moving playback.' : ready ? 'Lyrics late? Tap Earlier. Or choose Match a line, then tap the line you hear.' : 'Timing controls become available with synced lyrics.';
+@@ -1323,8 +1371,10 @@
+       if(this.nowPlaying.open && this.lyricLines.length)this.animateSurface(container);
+     }
+     syncLyricClock(){
+-      const wanted=!this.destroyed && this.nowPlaying?.open && this.prefs.lyrics && !document.hidden;
+-      if(wanted && !this.lyricsInterval)this.lyricsInterval=setInterval(()=>this.updateLyricPosition(),80);
++      const wanted=!this.destroyed && this.nowPlaying?.open && this.lyricsVisible() && this.lyricTimed && this.lyricLines.length>0 && !document.hidden;
++      const cadence=this.prefs.lowMemory ? 240 : 100;
++      if(this.lyricsClockCadence!==cadence && this.lyricsInterval){clearInterval(this.lyricsInterval);this.lyricsInterval=null;}this.lyricsClockCadence=cadence;
++      if(wanted && !this.lyricsInterval)this.lyricsInterval=setInterval(()=>this.updateLyricPosition(),cadence);
+       else if(!wanted && this.lyricsInterval){clearInterval(this.lyricsInterval);this.lyricsInterval=null;}
+     }
+     scrollLyricsTo(panel,top){
+@@ -1334,14 +1384,14 @@
+       const began=performance.now();
+       const duration=this.motionDuration(120,'lyricScrollSpeed');
+       const tick=now=>{
+-        if(this.destroyed || !this.nowPlaying.open || !this.prefs.lyrics || Date.now()<(this.lyricScrollUntil || 0))return;
++        if(this.destroyed || !this.nowPlaying.open || !this.lyricsVisible() || Date.now()<(this.lyricScrollUntil || 0))return;
+         const t=clamp((now-began)/duration,0,1);panel.scrollTop=start+(end-start)*(1-Math.pow(1-t,3));
+         if(t<1)this.lyricScrollFrame=requestAnimationFrame(tick);else this.lyricScrollFrame=0;
+       };
+       this.lyricScrollFrame=requestAnimationFrame(tick);
+     }
+     updateLyricPosition(){
+-      if(!this.prefs.lyrics || !this.lyricTimed || !this.lyricLines.length)return;
++      if(!this.lyricsVisible() || !this.lyricTimed || !this.lyricLines.length)return;
+       const progress=number(read(()=>this.player.getProgress(),0))+this.lyricOffset();let lo=0,hi=this.lyricLines.length;
+       while(lo<hi){const mid=(lo+hi)>>1;if(this.lyricLines[mid].at<=progress)lo=mid+1;else hi=mid;}
+       const index=lo-1;if(index===this.lyricIndex)return;this.lyricIndex=index;
+@@ -1349,26 +1399,26 @@
+       for(let i=0;i<children.length;i++){children[i].classList.toggle('lt-lyric-active',i===index);if(i===index)children[i].setAttribute('aria-current','true');else children[i].removeAttribute('aria-current');}
+       const panel=this.$('lt-lyrics-lines'),active=children[index];
+       if(active)this.playMotion(active,[{opacity:.7,transform:'translateY(3px)'},{opacity:1,transform:'none'}],{motion:'lyricLineSpeed',duration:100});
+-      if(this.prefs.lyrics && active && Date.now()>(this.lyricScrollUntil || 0)){
++      if(this.lyricsVisible() && active && Date.now()>(this.lyricScrollUntil || 0)){
+         const top=active.getBoundingClientRect().top-panel.getBoundingClientRect().top+panel.scrollTop-panel.clientHeight*.4;
+         this.scrollLyricsTo(panel,top);
+       }
+     }
+     applyLyricsLayout(){
+       if(!this.nowPlaying)return;
+-      const enabled=this.prefs.lyrics,changed=this.lastLyricsLayout!==undefined && this.lastLyricsLayout!==enabled;
++      const enabled=this.lyricsVisible(),changed=this.lastLyricsLayout!==undefined && this.lastLyricsLayout!==enabled;
+       const previous=changed ? this.lyricLayoutRects() : new Map();
+       if(changed && !enabled)this.makeLyricExitGhost();
+       else if(enabled){this.lyricExitGhost?.remove();this.lyricExitGhost=null;}
+       this.nowPlaying.dataset.lyrics=String(enabled);this.$('lt-lyrics-panel').hidden=!enabled;this.lastLyricsLayout=enabled;
+       const b=this.nowPlaying.querySelector('[data-action="toggleLyrics"]');b?.setAttribute('aria-pressed',String(enabled));
+-      if(!enabled){this.showLyricsMenu(false);this.lyricsToken++;this.lyricsAbort?.abort();this.lyricsInFlight=null;cancelAnimationFrame(this.lyricScrollFrame);}
+-      else if(this.nowPlaying.open)void this.loadLyrics();
++      if(!enabled){this.showLyricsMenu(false);cancelAnimationFrame(this.lyricScrollFrame);}
++      if(this.nowPlaying.open && this.lyricsLookupAllowed())void this.loadLyrics();
+       if(changed)this.animateLyricLayout(previous,enabled);
+       this.updateTimingControls();this.syncLyricClock();
+     }
+     toggleLyrics(){
+-      this.prefs.lyrics=!this.prefs.lyrics;this.save();this.applyPreferences();
++      this.lyricOverride=!this.lyricsVisible();this.applyLyricsLayout();
+     }
+ 
+     storageKey(name) {
+@@ -1513,6 +1563,43 @@
+       }
+       return found;
+     }
++    rememberHomeEntities(entries){
++      const signature=rows=>JSON.stringify(rows.map(row=>[row.uri,row.title,row.subtitle,row.image]));
++      const previous=signature(this.recentHome);
++      for(const entry of entries.slice().reverse()){
++        if(!entry || !['playlist','album','artist','collection'].includes(entry.type))continue;
++        const old=this.recentHome.find(row=>row.uri===entry.uri),row={...old,...entry,image:entry.image || old?.image || '',at:Date.now()};
++        this.recentHome=[row,...this.recentHome.filter(item=>item.uri!==row.uri)].slice(0,24);this.entities.set(row.uri,row);
++      }
++      if(previous!==signature(this.recentHome)){this.persistRecords('recent-contexts',this.recentHome);this.homeRecentVersion++;this.browsePages.delete('home');if(!this.libraryOpen && this.getRoutePath()==='/')this.renderBrowse();}
++    }
++    updateRecentHome(data,item,playing){
++      if(!playing || !item)return;
++      const m=item.metadata || {},context=data?.context || {},contextURI=context.uri || data?.context_uri || m.context_uri;
++      this.currentHomeContext=contextURI;
++      const key=JSON.stringify([item.uri,contextURI,item.album?.uri,m.album_uri,context.name,context.metadata?.name,item.artists,m.artist_uri]);if(this.observedHomeKey===key)return;this.observedHomeKey=key;
++      const entries=[],unresolved=[];
++      const add=(raw,fallback={})=>{
++        const info=uriInfo(typeof raw==='string' ? raw : raw?.uri);if(!info || !['playlist','album','artist','collection'].includes(info.type))return;
++        const known=this.entities.get(info.uri) || this.homeEntities.get(info.uri) || this.libraryEntities.get(info.uri) || this.recentHome.find(row=>row.uri===info.uri);
++        const name=cleanText(raw?.name || raw?.profile?.name || raw?.metadata?.name || fallback.name || known?.title);
++        if(!name){unresolved.push(info);return;}
++        const entry=normalizeEntity({...known,...fallback,...(typeof raw==='object' ? raw : {}),uri:info.uri,name,imageUrl:pickArtwork(raw) || known?.image || fallback.imageUrl});if(entry)entries.push(entry);
++      };
++      add(contextURI,{...context,name:context.name || context.metadata?.context_description || context.metadata?.playlist_name});
++      add(item.album?.uri ? item.album : m.album_uri,{name:item.album?.name || m.album_title,imageUrl:pickArtwork(item.album) || imageURL(m.image_url || m.image_xlarge_url)});
++      const artists=Array.isArray(item.artists) ? item.artists : item.artists?.items || [];
++      for(const artist of artists)add(artist);
++      if(!artists.some(artist=>uriInfo(artist?.uri)) && m.artist_uri)add(m.artist_uri,{name:m.artist_name});
++      this.rememberHomeEntities(entries);
++      for(const info of unresolved){
++        if(this.recentHomeFlights.has(info.uri))continue;
++        const task=this.apiGet(`https://api.spotify.com/v1/${info.type}s/${encodeURIComponent(info.uri.split(':')[2])}`,2500).then(raw=>{
++          if(this.destroyed || !cleanText(raw?.name || raw?.profile?.name))return;const entry=normalizeEntity({...raw,uri:info.uri});if(!entry)return;
++          if(this.observedHomeKey===key || this.currentHomeContext===info.uri)this.rememberHomeEntities([entry]);
++        }).catch(()=>{}).finally(()=>this.recentHomeFlights.delete(info.uri));this.recentHomeFlights.set(info.uri,task);
++      }
++    }
+     captureNativeCatalog() {
+       let changed=false;
+       const merge=(source,target)=>{for(const [uri,entry] of source){
+@@ -1525,7 +1612,10 @@
+         if(!old || old.title!==entry.title || old.image!==entry.image || old.section!==entry.section){target.set(uri,entry);changed=true;}
+         this.entities.set(uri,target.get(uri));
+       }};
+-      if((this.history.location?.pathname || '/')==='/')merge(this.collectNativeEntities(this.main),this.homeEntities);
++      if((this.history.location?.pathname || '/')==='/'){
++        const found=this.collectNativeEntities(this.main);
++        if(found.size){const before=[...this.homeEntities.keys()].join('|');merge(found,this.homeEntities);if(before!==[...found.keys()].join('|'))changed=true;this.homeEntities=found;}
++      }
+       if(/^\/search\/?$/.test(this.history.location?.pathname || '')){
+         for(const section of this.main?.querySelectorAll('section, [data-testid="recent-searches"]') || []){
+           if(section.dataset.testid==='recent-searches' || /recent.*search|search.*recent/i.test(section.querySelector('h2,h3')?.textContent || '')){
+@@ -1765,7 +1855,7 @@
+       this.browse.hidden=!kind;
+       if(!kind)return;
+       if(this.pointerHeld){this.browseDeferred=true;return;}
+-      const signature=(kind==='detail' ? [kind,path,page.version] : kind==='home' ? [kind,this.catalogVersion,this.welcomeText(),this.prefs.welcomeSubtitle] : kind==='library' ? [kind,this.catalogVersion,this.libraryQuery,this.libraryFilter,this.libraryBusy,this.libraryHasMore] : kind==='results' ? [kind,path,this.searchResultVersion,this.searchFilter] : [kind,this.catalogVersion]).join('|');
++      const signature=(kind==='detail' ? [kind,path,page.version] : kind==='home' ? [kind,this.catalogVersion,this.homeRecentVersion,this.welcomeText(),this.prefs.welcomeSubtitle] : kind==='library' ? [kind,this.catalogVersion,this.libraryQuery,this.libraryFilter,this.libraryBusy,this.libraryHasMore] : kind==='results' ? [kind,path,this.searchResultVersion,this.searchFilter] : [kind,this.catalogVersion]).join('|');
+       if(signature===this.browseSignature && kind===this.browseKind){this.refreshGreeting();return;}
+       const active=document.activeElement;
+       const focusId=this.browse.contains(active) ? active.id : '';
+@@ -1794,8 +1884,10 @@
+         const actions=node('div','lt-quick-actions');
+         for(const [label,action] of [['Liked Songs','likedSongs'],['Listening history','playHistory']]){const b=node('button','lt-pill lt-glass',label);b.type='button';b.dataset.action=action;actions.append(b);}
+         hero.append(actions);this.browse.append(hero);this.refreshHomeClock();
+-        const groups=new Map();
++        this.appendGrid(this.browse,'Recently played',this.recentHome);
++        const recentURIs=new Set(this.recentHome.map(row=>row.uri)),groups=new Map();
+         for(const entry of this.homeEntities.values()){
++          if(recentURIs.has(entry.uri))continue;
+           const section=entry.section || 'Jump back in';if(!groups.has(section))groups.set(section,[]);groups.get(section).push(entry);
+         }
+         for(const [title,entries] of [...groups].slice(0,this.previewMode ? 2 : Infinity))this.appendGrid(this.browse,title,entries);
+@@ -1874,7 +1966,7 @@
+       return false;
+     }
+     holdEntry(target) {
+-      if(target.closest?.('#lt-utility,[data-action="artworkSettings"]'))return null;
++      if(target.closest?.('#lt-utility'))return null;
+       const card=target.closest?.('[data-lt-card],.lt-card[data-uri]');
+       if(card)return this.entities.get(card.dataset.ltCard || card.dataset.uri) || null;
+       const track=target.closest?.('[data-detail-track]');
+@@ -2335,11 +2427,12 @@
+           if (preference) {
+             const key = preference.dataset.pref;
+             this.prefs[key] = !this.prefs[key];
++            if(key==='lyrics')this.lyricOverride=null;
+             if(['lyricsFallback','lyricsTextFallback'].includes(key)){this.lyricsCache.clear();this.lyricsLoadedURI=null;this.lyricsAbort?.abort();this.lyricsInFlight=null;this.lyricsToken++;}
+             this.save(); this.applyPreferences();
+           }
+           const adjust = e.target.closest("button[data-adjust]");
+-          if (adjust) this.changeScale(adjust.dataset.adjust, this.prefs[adjust.dataset.adjust] + Number(adjust.dataset.delta));
++          if (adjust) this.changeScale(adjust.dataset.adjust, settingPercent(adjust.dataset.adjust,this.prefs[adjust.dataset.adjust]) + Number(adjust.dataset.delta));
+           const opacity=e.target.closest('button[data-opacity-override]');
+           if(opacity && OPACITY_PANELS.some(([key])=>key===opacity.dataset.opacityOverride)){
+             const key=opacity.dataset.opacityOverride;this.prefs[key]=this.prefs[key]===null ? this.prefs.glassOpacity : null;
+@@ -2360,7 +2453,7 @@
+       this.listen(this.$('lt-update-file'),'change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{const bundle=await window.LiquidTouchUpdater.importFile(file);if(this.destroyed)return;if(bundle.version===VERSION){this.setUpdateStatus('This file is the version already running.');return;}this.showUpdatePrompt({bundle,version:bundle.version,summary:bundle.summary,source:file.name});}catch(error){this.setUpdateStatus(error.message);}});
+       this.listen(this.releaseDialog,'click',e=>{if(e.target.closest('a[data-action="fullReleaseNotes"]')){e.preventDefault();void this.action('fullReleaseNotes');}});
+       this.listen(this.settings, "input", e => {
+-        if (["textScale", "uiScale", "playerTextScale", "playerLyricsScale", "playerControlScale", "cardTapDelay", "keyboardHeight", "artworkSize", "glassOpacity", "rounding", "quickSearchBlur","motionSpeed",...MOTION_CONTROLS.map(([key])=>key),...GESTURE_CONTROLS.map(([key])=>key),...OPACITY_PANELS.map(([key])=>key)].includes(e.target.dataset.pref)) this.changeScale(e.target.dataset.pref, Number(e.target.value));
++        if (Object.hasOwn(PERCENT_SETTINGS,e.target.dataset.pref)) this.changeScale(e.target.dataset.pref, Number(e.target.value));
+       });
+       this.listen(document,'click',event=>{
+         const handledUntil=this.fastPointerClicks.get(event.pointerId);
+@@ -2454,7 +2547,7 @@
+         const state = event?.data || event?.detail?.data || event?.detail;
+         if (state && typeof state === "object") this.eventState = state;
+         else if(event && (event.type === "songchange" || event.data === null))this.eventState=null;
+-        this.render();
++        this.nativeDetailsAt=0;this.render();
+       };
+       for (const event of ["songchange", "onplaypause"]) this.player.addEventListener(event, this.onPlayerEvent);
+       if (typeof this.history.listen === "function") this.unlisten = this.history.listen(event => {
+@@ -2462,12 +2555,13 @@
+         this.acceptHostRoute(path);
+       });
+       this.observer = new MutationObserver(records => {
++        if(!this.enabled || document.hidden || this.nowPlaying.open){this.nativeDirty=true;return;}
+         if (this.refreshPending || !records.some(record => {
+           const node = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+           return !node?.closest(OWN);
+         })) return;
+         this.refreshPending = true;
+-        this.later(() => { this.refreshPending = false; this.refreshNative(); }, 350);
++        this.later(() => { this.refreshPending = false; this.refreshNative(); }, this.prefs.lowMemory ? 1200 : 350);
+       });
+       this.observer.observe(document.querySelector(".Root") || document.body, { childList: true, subtree: true });
+       if (window.ResizeObserver) {
+@@ -2583,7 +2677,7 @@
+       this.$('lt-settings-categories').hidden=Boolean(section);
+       for(const page of this.settings.querySelectorAll('[data-settings-page]'))page.hidden=page.dataset.settingsPage!==next;
+       this.$('lt-settings-title').textContent=section?.title || 'Make it yours.';
+-      this.$('lt-settings-subtitle').textContent=section?.subtitle || `LiquidTouch · ${VERSION} · revised`;
++      this.$('lt-settings-subtitle').textContent=section?.subtitle || `LiquidTouch · ${VERSION}`;
+       this.settings.querySelector('[data-action="settingsBack"]').hidden=!section;
+       scroller.scrollTop=this.settingsScroll.get(next) || 0;
+       if(focus){
+@@ -2598,6 +2692,7 @@
+       d.ltLite = String(this.prefs.lite);
+       d.ltLowMemory=String(this.prefs.lowMemory);
+       this.applyMemoryPolicy();
++      this.schedulePlayerTick();
+       d.ltMotion = this.prefs.reduceMotion ? "reduce" : "auto";
+       if (this.lastWindowPreference !== this.prefs.windowControls) {
+         this.chromeFailed = false; this.lastWindowPreference = this.prefs.windowControls;
+@@ -2613,7 +2708,7 @@
+       style.setProperty("--lt-artwork-scale", String(this.prefs.artworkSize/100));
+       style.setProperty("--lt-quick-search-blur",this.prefs.quickSearchBlur+"px");
+       this.applyGlassPreferences();this.applyMotionPreferences();
+-      style.setProperty("--lt-touch", `${(this.prefs.size === "large" ? 56 : 48) * scale}px`);
++      style.setProperty("--lt-touch", `${48 * this.prefs.touchScale/100 * scale}px`);
+       style.setProperty("--lt-row", `${Math.max((this.prefs.size === "large" ? 72 : 64) * scale, 44 * text + 20)}px`);
+       style.setProperty("--lt-header", `${Math.max((this.prefs.size === "large" ? 72 : 64) * scale, 32 * text + 24)}px`);
+       style.setProperty("--lt-mini", `${Math.max((this.prefs.size === "large" ? 80 : 72) * scale, 44 * text + 24)}px`);
+@@ -2624,14 +2719,9 @@
+       for(const input of [this.searchInput,this.$("lt-quick-input"),this.$("lt-history-search")])input.setAttribute("inputmode",this.prefs.keyboard ? "none" : "search");
+       for(const key of ["welcome","welcomeSubtitle"])this.$(`lt-${key}`).value=this.prefs[key];
+       this.$('lt-update-feed').value=this.prefs.updateFeed;
+-      for (const key of ["palette", "size"]) this.$(`lt-${key}`).value = this.prefs[key];
++      for (const key of ["palette"]) this.$(`lt-${key}`).value = this.prefs[key];
+       this.$('lt-clockFormat').value=this.prefs.clockFormat;this.$('lt-clockFormat').disabled=!this.prefs.homeClock;this.refreshHomeClock();
+-      for (const key of ["textScale", "uiScale", "playerTextScale", "playerLyricsScale", "playerControlScale", "cardTapDelay", "keyboardHeight", "artworkSize", "rounding", "quickSearchBlur"]) {
+-        this.$(`lt-${key}`).value = String(this.prefs[key]);
+-        this.$(`lt-${key}-value`).textContent = `${this.prefs[key]}${(key==='rounding' || key==='quickSearchBlur') ? 'px' : key==='cardTapDelay' ? 'ms' : '%'}`;
+-        this.$(`lt-${key}`).setAttribute("aria-valuetext", `${this.prefs[key]} ${(key==='rounding' || key==='quickSearchBlur') ? 'pixels' : key==='cardTapDelay' ? 'milliseconds' : 'percent'}`);
+-        this.paintRange(this.$(`lt-${key}`));
+-      }
++      for (const key of ["textScale","uiScale","touchScale","playerTextScale","playerLyricsScale","playerControlScale","cardTapDelay","keyboardHeight","artworkSize","rounding","quickSearchBlur"])this.paintSetting(key);
+       for (const node of this.settings.querySelectorAll('[role="switch"][data-pref]')) node.setAttribute("aria-checked", String(this.prefs[node.dataset.pref]));
+       if (!this.prefs.keyboard) this.showKeyboard(false);
+       this.applyLyricsLayout();
+@@ -2640,16 +2730,24 @@
+       if (this.enabled) void this.syncWindowChrome();
+     }
+     applyMemoryPolicy(){
++      if(this.memoryPolicyMode!==this.prefs.lowMemory){this.memoryPolicyMode=this.prefs.lowMemory;this.lastPlayerSignature=null;this.lastColorKey=null;if(this.enabled)this.later(()=>this.render(),0);}
+       if(!this.prefs.lowMemory){if(this.lastImage){this.ambientArt.src=this.lastImage;this.$('lt-player-background').src=this.lastImage;}return;}
+       this.ambientArt?.removeAttribute('src');this.$('lt-player-background')?.removeAttribute('src');
+       this.browsePages.clear();this.warmedArtwork?.clear();
+       for(const [cache,limit] of [[this.searchCache,8],[this.artCache,32],[this.lyricsCache,4],[this.colorCache,12],[this.detailPages,4]])while(cache.size>limit)cache.delete(cache.keys().next().value);
+-      this.artJobs=this.artJobs.filter(uri=>this.browse?.querySelectorAll('[data-uri]') && [...this.browse.querySelectorAll('[data-uri]')].some(card=>card.dataset.uri===uri)).slice(0,12);
++      const visible=new Set([...this.browse?.querySelectorAll('[data-uri]') || []].map(card=>card.dataset.uri));
++      this.artJobs=this.artJobs.filter(uri=>visible.has(uri)).slice(0,8);
++      this.buttonPaintState?.clear();
++    }
++    paintSetting(key){
++      const input=this.$('lt-'+key);if(!input)return;
++      const value=settingPercent(key,this.prefs[key]);input.value=String(value);
++      this.$('lt-'+key+'-value').textContent=value+'%';input.setAttribute('aria-valuetext',value+' percent');this.paintRange(input);
+     }
+     changeScale(key, value) {
+       const input = this.$(`lt-${key}`);
+       if (!input) return;
+-      this.prefs[key] = clamp(value, Number(input.min), Number(input.max));
++      this.prefs[key] = settingValue(key,value);
+       this.save();
+       if(key==='glassOpacity' || OPACITY_PANELS.some(([name])=>name===key)){this.applyGlassPreferences();return;}
+       if(key==='motionSpeed' || MOTION_CONTROLS.some(([name])=>name===key) || GESTURE_CONTROLS.some(([name])=>name===key)){this.applyMotionPreferences();return;}
+@@ -3119,7 +3217,7 @@
+           case "lyricsLater": this.setLyricOffset(this.lyricOffset()-250);break;
+           case "lyricsTimingReset": this.setLyricOffset(0);break;
+           case "lyricsMatchLine": this.matchLyricLine=!this.matchLyricLine;if(this.matchLyricLine){this.$('lt-lyric-timing').hidden=true;this.nowPlaying.querySelector('[data-action="lyricTiming"]').setAttribute('aria-expanded','false');this.animateSurface(this.$('lt-lyrics-lines'));}this.updateTimingControls();break;
+-          case "openLyricTiming": this.closeDialog(this.settings);if(!this.prefs.lyrics){this.prefs.lyrics=true;this.save();this.applyPreferences();}await this.showPlayer();this.showLyricTiming(true);break;
++          case "openLyricTiming": this.closeDialog(this.settings);this.lyricOverride=true;this.applyLyricsLayout();await this.showPlayer();this.showLyricTiming(true);break;
+           case "refreshLibrary": void this.loadLibrary(true); break;
+           case "moreLibrary": void this.loadLibrary(); break;
+           case "moreHome": {
+@@ -3151,7 +3249,6 @@
+           case "settings": case "playerSettings": if(this.playerOpening)this.closeDialog(this.nowPlaying);this.openDialog(this.settings); break;
+           case "settingsBack": this.showSettingsSection(null);break;
+           case "closeSettings": this.closeDialog(this.settings); break;
+-          case "artworkSettings": this.openDialog(this.settings);this.showSettingsSection("player");requestAnimationFrame(()=>this.$('lt-artworkSize').closest('.lt-setting').scrollIntoView({block:'start'}));break;
+           case "keyboard":
+             if (!this.prefs.keyboard) { this.notify("Built-in keyboard is off. Use the system touch keyboard, or enable it in settings."); break; }
+             this.showKeyboard(this.$("lt-keyboard").hidden);
+@@ -3180,10 +3277,13 @@
+       }
+     }
+     paintRange(input) {
+-      const fill = clamp(number(input.value) / number(input.max, 100) * 100, 0, 100);
++      const minimum=number(input.min),span=number(input.max,100)-minimum;
++      const fill = clamp((number(input.value)-minimum)/Math.max(1,span)*100,0,100);
+       input.style.setProperty("--lt-fill", `${fill}%`);
+     }
+     paintButtons(action, { glyph, label, pressed, disabled } = {}) {
++      const signature=JSON.stringify({glyph,label,pressed,disabled});
++      if(this.buttonPaintState?.get(action)===signature)return;this.buttonPaintState?.set(action,signature);
+       for (const root of [this.shell, this.nowPlaying]) for (const b of root.querySelectorAll(`button[data-action="${action}"]`)) {
+         if (glyph && b.dataset.icon !== glyph) { b.querySelector(".lt-icon").innerHTML = icon(glyph); b.dataset.icon = glyph; }
+         if (label && b.getAttribute("aria-label") !== label) b.setAttribute("aria-label", label);
+@@ -3210,6 +3310,8 @@
+       }).catch(() => {}).finally(() => { this.platformReadBusy = false; });
+     }
+     nativeTrackDetails() {
++      if(Date.now()-(this.nativeDetailsAt || 0)<(this.prefs.lowMemory ? 2000 : 500))return this.nativeDetailsCache || {};
++      this.nativeDetailsAt=Date.now();
+       const region = document.querySelector('.Root__now-playing-bar, [data-testid="now-playing-bar"]');
+       if (!region) return {};
+       const title = region.querySelector('[data-testid="context-item-info-title"], .main-nowPlayingWidget-nowPlaying .main-trackInfo-name a, .main-trackInfo-name a, a[href^="/track/"]');
+@@ -3217,7 +3319,18 @@
+       const image = region.querySelector('[data-testid="cover-art-image"], .main-nowPlayingWidget-coverArt img, img');
+       const href = title?.getAttribute("href") || title?.querySelector('a[href]')?.getAttribute('href') || "";
+       const match = href.match(/^\/(track|episode)\/([\w-]+)/);
+-      return { title: title?.textContent?.trim() || "", artist: artist?.textContent?.trim() || "", image: imageURL(image?.getAttribute("src") || ""), uri: match ? `spotify:${match[1]}:${match[2]}` : "" };
++      return this.nativeDetailsCache={ title: title?.textContent?.trim() || "", artist: artist?.textContent?.trim() || "", image: imageURL(image?.getAttribute("src") || ""), uri: match ? `spotify:${match[1]}:${match[2]}` : "" };
++    }
++    paintPlaybackProgress(progress){
++      this.progressPaintCount++;
++      if(!this.editing.has('seek')){
++        const value=String(Math.round(this.duration ? progress/this.duration*1000 : 0));
++        if(this.seek.value!==value){this.seek.value=value;this.paintRange(this.seek);}
++        const elapsed=time(progress),description=elapsed+' of '+time(this.duration);
++        this.setText('lt-elapsed',elapsed);if(this.seek.getAttribute('aria-valuetext')!==description)this.seek.setAttribute('aria-valuetext',description);
++      }
++      const width=(this.duration ? progress/this.duration*100 : 0).toFixed(2)+'%';
++      if(this.$('lt-mini-fill').style.width!==width)this.$('lt-mini-fill').style.width=width;
+     }
+     render() {
+       if (this.destroyed) return;
+@@ -3242,6 +3355,13 @@
+       const saved = Boolean(read(() => this.player.getHeart(), m["collection.in_collection"] === "true"));
+       const volume = read(() => this.player.getVolume(), null);
+       const muted = Boolean(read(() => this.player.getMute(), false));
++      const images=[...(Array.isArray(item?.album?.images) ? item.album.images : []),...(Array.isArray(item?.images) ? item.images : [])];
++      const smaller=images.filter(image=>image.width>=256 && image.width<=640).sort((a,b)=>a.width-b.width)[0]?.url;
++      const image = imageURL((this.prefs.lowMemory && (m.image_small_url || smaller || m.image_url)) || m.image_xlarge_url || m.image_large_url || m.image_url || images[0]?.url || native.image || "");
++      const signature=JSON.stringify([uri,title,artist,image,this.duration,playing,repeat,shuffled,saved,volume,muted,r,m['collection.can_add'],data?.context?.uri || data?.context_uri,m.album_uri,m.album_title,item?.album?.uri,item?.artists]);
++      this.updateRecentHome(data,item,playing);
++      if(this.lastPlayerSignature===signature){this.paintPlaybackProgress(progress);this.recordPlay({uri,title,artist,album:cleanText(item?.album?.name || m.album_title),subtitle:artist,image},playing,progress);return;}
++      this.lastPlayerSignature=signature;this.playerPaintCount++;
+       this.setText("lt-mini-title", title);
+       this.setText("lt-mini-artist", artist);
+       this.setText("lt-np-title", hasItem ? title : "Nothing playing yet");
+@@ -3256,14 +3376,7 @@
+       this.paintButtons("toggleMute", { glyph: muted ? "muted" : "speaker", label: muted ? "Unmute" : "Mute", pressed: muted, disabled: typeof volume !== "number" || !Number.isFinite(volume) });
+       this.seek.disabled = !hasItem || !this.duration || denied("canSeek", "disallow_seeking_reasons");
+       if(this.lyricsSeekDisabled!==this.seek.disabled){this.lyricsSeekDisabled=this.seek.disabled;this.updateTimingControls();}
+-      if (!this.editing.has("seek")) {
+-        this.seek.value = String(this.duration ? progress / this.duration * 1000 : 0);
+-        this.paintRange(this.seek);
+-        this.setText("lt-elapsed", time(progress));
+-        this.seek.setAttribute("aria-valuetext", `${time(progress)} of ${time(this.duration)}`);
+-      }
+-      this.setText("lt-duration", time(this.duration));
+-      this.$("lt-mini-fill").style.width = `${this.duration ? progress / this.duration * 100 : 0}%`;
++      this.paintPlaybackProgress(progress);this.setText("lt-duration",time(this.duration));
+       this.volume.disabled = typeof volume !== "number" || !Number.isFinite(volume);
+       if (!this.editing.has("volume")) {
+         this.volume.value = String(Math.round(clamp(number(volume, .5), 0, 1) * 100));
+@@ -3271,7 +3384,7 @@
+         this.setText("lt-volume-text", `${this.volume.value}%`);
+         this.volume.setAttribute("aria-valuetext", `${this.volume.value} percent`);
+       }
+-      const image = imageURL(m.image_xlarge_url || m.image_large_url || m.image_url || item?.album?.images?.[0]?.url || item?.images?.[0]?.url || native.image || "");
++
+       this.confirmTrackPeek(uri);
+       if (image !== this.lastImage) {
+         this.lastImage = image;
+@@ -3292,8 +3405,7 @@
+         this.showLyricsMenu(false);
+         this.lastURI = uri;
+         this.warmAdjacentArtwork();
+-        this.lyricLines=[];this.lyricIndex=-2;this.lyricsLoadedURI=null;this.lyricInstrumental=false;this.lyricState='idle';this.matchLyricLine=false;this.lyricSource='spotify';this.lyricProvider='';this.paintLyrics();
+-        if(this.nowPlaying.open)void this.loadLyrics();
++        this.resetSongLyrics();
+         this.editing.delete("seek");
+       }
+       if (`${uri}|${image}` !== this.lastColorKey) { this.lastColorKey = `${uri}|${image}`; void this.updateArtworkColor(uri, image); }
+@@ -3350,7 +3462,7 @@
+         if(this.colorCache.size>(this.prefs.lowMemory ? 12 : 48))this.colorCache.delete(this.colorCache.keys().next().value);
+         this.applyArtworkColor(rgb);
+       };
+-      void this.sampleArtwork(image).then(rgb=>{if(!apiColor)apply(rgb);});
++      if(!this.prefs.lowMemory)void this.sampleArtwork(image).then(rgb=>{if(!apiColor)apply(rgb);});
+       if (!uri || !this.S.colorExtractor) return;
+       try {
+         const colors = await this.S.colorExtractor(uri);
+@@ -3370,7 +3482,7 @@
+       } else document.body.append(this.toast);
+     }
+     diagnostics() {
+-      return { version: VERSION, phase: "mounted", enabled: this.enabled, nativeMainFound: Boolean(this.main), nativeLibraryFound: Boolean(this.library), librarySource:this.librarySource || 'loading', libraryItems:this.libraryEntities.size, libraryHasMore:this.libraryHasMore, historyItems:this.playHistory.length, historyStorage:this.historyState, utilityOpen:this.utility.open, devicesSource:this.devicesSource || 'not requested', playerAvailable: Boolean(this.player), playerDataReady: Boolean(trackFromState(this.getPlayerState())), stateSource:this.stateSource, playerOpen:this.nowPlaying.open, playerOpening:Boolean(this.playerOpening), playerPhase:this.playerPhase || 'closed', playerReveal:this.playerReveal ?? 1, cardTapPending:Boolean(this.pendingCardTap), fullscreen:Boolean(document.fullscreenElement), route:this.getRoutePath(), backSteps:this.viewStack.length, searchSource:this.searchSource || 'not requested', searchError:this.searchError || '', lyricsState:this.lyricState || 'idle', lyricsProvider:this.lyricProvider || '', lyricSource:this.lyricSource || '', lyricOffsetMs:this.lyricOffset(), gestureActive:Boolean(this.activeGesture), animatingSurfaces:this.motionAnimations.size, browseBuilds:this.browseBuildCount || 0, browseReuses:this.browseReuseCount || 0, pagePreview:Boolean(this.pagePreview),memoryCaches:{pages:this.browsePages.size,artwork:this.artCache.size,search:this.searchCache.size,lyrics:this.lyricsCache.size,details:this.detailPages.size}, windowControls:this.chromeMode, windowBridgeAvailable:Boolean(this.windowCapabilities()), spicetifyVersion: this.S.Config?.version || "unknown", viewport: `${innerWidth}×${innerHeight}`, preferences: { ...this.prefs } };
++      return { version: VERSION, phase: "mounted", enabled: this.enabled, nativeMainFound: Boolean(this.main), nativeLibraryFound: Boolean(this.library), librarySource:this.librarySource || 'loading', libraryItems:this.libraryEntities.size, libraryHasMore:this.libraryHasMore, historyItems:this.playHistory.length, historyStorage:this.historyState, utilityOpen:this.utility.open, devicesSource:this.devicesSource || 'not requested', playerAvailable: Boolean(this.player), playerDataReady: Boolean(trackFromState(this.getPlayerState())), stateSource:this.stateSource, playerOpen:this.nowPlaying.open, playerOpening:Boolean(this.playerOpening), playerPhase:this.playerPhase || 'closed', playerReveal:this.playerReveal ?? 1, cardTapPending:Boolean(this.pendingCardTap), fullscreen:Boolean(document.fullscreenElement), route:this.getRoutePath(), backSteps:this.viewStack.length, searchSource:this.searchSource || 'not requested', searchError:this.searchError || '', lyricsVisible:this.lyricsVisible(),lyricsManual:this.lyricOverride,recentHomeItems:this.recentHome.length,playerPaints:this.playerPaintCount,progressPaints:this.progressPaintCount,lyricsState:this.lyricState || 'idle', lyricsProvider:this.lyricProvider || '', lyricSource:this.lyricSource || '', lyricOffsetMs:this.lyricOffset(), gestureActive:Boolean(this.activeGesture), animatingSurfaces:this.motionAnimations.size, browseBuilds:this.browseBuildCount || 0, browseReuses:this.browseReuseCount || 0, pagePreview:Boolean(this.pagePreview),memoryCaches:{pages:this.browsePages.size,artwork:this.artCache.size,search:this.searchCache.size,lyrics:this.lyricsCache.size,details:this.detailPages.size}, windowControls:this.chromeMode, windowBridgeAvailable:Boolean(this.windowCapabilities()), spicetifyVersion: this.S.Config?.version || "unknown", viewport: `${innerWidth}×${innerHeight}`, preferences: { ...this.prefs } };
+     }
+     destroy() {
+       this.stopBackspaceRepeat();
+@@ -3386,7 +3498,7 @@
+       clearTimeout(this.searchDebounce);this.liveSearchToken++;this.lyricsToken++;this.lyricsAbort?.abort();
+       this.abort.abort();
+       this.observer?.disconnect(); this.resizeObserver?.disconnect();
+-      clearInterval(this.interval);clearInterval(this.lyricsInterval);this.imageObserver?.disconnect();
++      clearTimeout(this.interval);clearInterval(this.lyricsInterval);this.imageObserver?.disconnect();
+       for (const timer of this.timers) clearTimeout(timer);
+       this.timers.clear();
+       for (const event of ["songchange", "onplaypause"]) this.player.removeEventListener?.(event, this.onPlayerEvent);
+--- a/LiquidTouch/Themes/LiquidTouch/runtime.css
++++ b/LiquidTouch/Themes/LiquidTouch/runtime.css
+@@ -1237,8 +1237,6 @@
+ .lt-track-incoming { position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;z-index:1;pointer-events:none;will-change:transform; }
+ .lt-track-outgoing { position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;z-index:2;pointer-events:none; }
+ #lt-art { position:relative;z-index:0; }
+-#lt-now-playing .lt-art-size-button { position:absolute;right:8px;bottom:8px;z-index:3;min-width:44px;min-height:44px;width:44px;height:44px;border-radius:50%;padding:10px;background:rgba(var(--lt-glass-rgb),.8);box-shadow:0 2px 10px #0005; }
+-#lt-now-playing .lt-art-size-button svg { width:24px;height:24px; }
+ #lt-keyboard .lt-kb-row button.lt-key-held { position:relative;z-index:2;transform:scale(1.08);background:#d8fff0 !important;color:#102d26;box-shadow:0 5px 18px #0005; }
+ #lt-keyboard [data-key="Backspace"] { touch-action:none; }
+ :is(#lt-shell,.lt-dialog) :is(.lt-card,[data-lt-card],[data-detail-track],[data-history-uri],.lt-art-frame) { -webkit-touch-callout:none;user-select:none;-webkit-user-select:none; }
+@@ -1516,3 +1514,21 @@
+ #lt-utility .lt-utility-stage:not(.lt-utility-back-preview) { position:relative;z-index:1; }
+ .lt-quick-gesture-preview { top:calc(var(--lt-chrome-height) + 12px);pointer-events:none; }
+ .lt-dialog[data-lt-sheet-drag="true"]::backdrop { background:rgba(3,7,17,calc(.4 * var(--lt-backdrop-fade,1))); }
++
++/* v1.9.6: low memory also reduces compositor work, including pseudo-surfaces. */
++body[data-lt-low-memory="true"] :is(#lt-shell,.lt-dialog,.lt-atmosphere),
++body[data-lt-low-memory="true"] :is(#lt-shell,.lt-dialog)::before,
++body[data-lt-low-memory="true"] :is(#lt-shell,.lt-dialog)::after,
++body[data-lt-low-memory="true"] :is(#lt-shell,.lt-dialog) *,
++body[data-lt-low-memory="true"] :is(#lt-shell,.lt-dialog) *::before,
++body[data-lt-low-memory="true"] :is(#lt-shell,.lt-dialog) *::after,
++body[data-lt-low-memory="true"] .lt-dialog::backdrop {
++  backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
++  filter:none !important;transition:none !important;animation:none !important;
++}
++body[data-lt-low-memory="true"] :is(.lt-card,.lt-nav,.lt-mini,.lt-utility-stage,.lt-lyrics-panel) { box-shadow:none !important; }
++body[data-lt-low-memory="true"] :is(.lt-card,.lt-detail-track,.lt-history-row) { content-visibility:auto;contain-intrinsic-size:auto 160px; }
++body[data-lt-low-memory="true"] .lt-card-art img { image-rendering:auto; }
++/* Horizontal gestures use one recognizer across browse, sheets and player. */
++#lt-shell .lt-browse,.lt-dialog,.lt-dialog .lt-np-layout,.lt-mini { touch-action:pan-y; }
++.lt-dialog input,.lt-dialog textarea,.lt-dialog select,#lt-shell input { touch-action:auto; }
+--- a/LiquidTouch/tests/settings-navigation.cjs
++++ b/LiquidTouch/tests/settings-navigation.cjs
+@@ -1,6 +1,6 @@
+ /* Navigate the real Settings categories; older release fixtures keep their flat UI. */
+ const groups={
+- accessibility:['textScale','uiScale','size','reduceMotion'],
++ accessibility:['textScale','uiScale','touchScale','size','reduceMotion'],
+  appearance:['quickSearchBlur','palette','glassOpacity','rounding','adaptive','windowControls','lite','headerOpacity','navOpacity','miniOpacity','playerHeaderOpacity','lyricsOpacity','settingsOpacity','historyOpacity','opacity'],
+  player:['artworkSize','playerTextScale','playerControlScale','startPlayer'],
+  lyrics:['lyrics','lyricsFallback','lyricsTextFallback','playerLyricsScale','openLyricTiming'],
+--- /dev/null
++++ b/LiquidTouch/tests/release-196-dom.cjs
+@@ -0,0 +1,60 @@
++'use strict';
++// Run the complete packaged extension in a DOM host, with the shipped Spotify
++// fixture. Development dependency: jsdom (or set LT_JSDOM_PATH). No live API.
++const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
++const {JSDOM,VirtualConsole}=require(process.env.LT_JSDOM_PATH || 'jsdom');
++const {webcrypto}=require('node:crypto'),{TextEncoder,TextDecoder}=require('node:util');
++const base=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms));let passed=0;
++const lyricResponse={lyrics:{syncType:'LINE_SYNCED',providerDisplayName:'Regression fixture',lines:[{words:'First line',startTimeMs:'0'},{words:'Second line',startTimeMs:'10000'}]}};
++async function until(test,label='condition'){for(let i=0;i<120;i++){if(test())return;await sleep(20);}throw Error('Timed out: '+label);}
++async function open(prefs={},htmlFile='LiquidTouch-Preview.html'){
++ const errors=[],dom=new JSDOM(fs.readFileSync(path.isAbsolute(htmlFile)?htmlFile:path.join(base,htmlFile),'utf8'),{
++  url:'http://localhost/',runScripts:'dangerously',pretendToBeVisual:true,
++  virtualConsole:new VirtualConsole().on('jsdomError',e=>errors.push(e.message)),
++  beforeParse(w){
++   Object.assign(w,{TextEncoder,TextDecoder,fetch:async()=>{throw Error('External network disabled in tests');},matchMedia:()=>({matches:false,addEventListener(){},removeEventListener(){}})});
++   Object.defineProperty(w,'crypto',{value:webcrypto});w.CSS={escape:s=>s.replace(/[^\w-]/g,c=>'\\'+c)};w.innerWidth=1024;w.innerHeight=600;
++   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
++   w.HTMLElement.prototype.getAnimations=()=>[];w.HTMLElement.prototype.scrollIntoView=()=>{};w.HTMLCanvasElement.prototype.getContext=()=>null;
++   w.localStorage.setItem('liquid-touch.preferences.v1',JSON.stringify({updateChecks:false,reduceMotion:true,lyricsFallback:false,lyricsTextFallback:false,keyboard:false,...prefs}));
++   w.localStorage.setItem('liquid-touch.seen-release','1.9.6');
++  }
++ });
++ const w=dom.window,$=selector=>w.document.querySelector(selector),diag=()=>w.LiquidTouch.diagnostics();
++ await until(()=>w.LiquidTouch?.diagnostics().phase==='mounted','mount');await sleep(40);
++ const click=selector=>{assert.ok($(selector),'Missing '+selector);$(selector).click();};
++ return {w,$,diag,errors,click,async player(){click('#lt-mini-open');await until(()=>diag().playerPhase==='open','player');},async close(){w.LiquidTouch?.destroy();await sleep(10);w.close();assert.deepEqual(errors,[]);}};
++}
++async function test(name,job){await job();passed++;console.log('PASS '+name);}
++function setRange(host,key,value){const input=host.$('#lt-'+key);input.value=String(value);input.dispatchEvent(new host.w.Event('input',{bubbles:true}));}
++function swipe(h,target,dx,dy,x=300,y=320){
++ const event=(type,target,x,y)=>{const e=new h.w.MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,button:0});Object.defineProperties(e,{pointerType:{value:'touch'},pointerId:{value:1},isPrimary:{value:true}});target.dispatchEvent(e);};
++ event('pointerdown',target,x,y);event('pointermove',h.w,x+dx,y+dy);event('pointerup',h.w,x+dx,y+dy);
++}
++function interceptLyrics(h,get){const original=h.w.Spicetify.CosmosAsync.get;h.w.Spicetify.CosmosAsync.get=url=>url.includes('color-lyrics')?get(url):original(url);}
++(async()=>{
++ await test('packaged extension mounts and keeps the initial lyrics layout hidden',async()=>{const h=await open();assert.equal(h.diag().lyricsVisible,false);assert.equal(h.$('#lt-lyrics-panel').hidden,true);assert.equal(h.$('[data-action=artworkSettings]'),null);assert.equal(h.diag().playerPaints,1);await h.close();});
++ await test('pending lyrics stay hidden and only successful current-song lyrics open the panel',async()=>{const h=await open();let finish;interceptLyrics(h,()=>new Promise(r=>finish=r));await h.player();assert.equal(h.diag().lyricsState,'loading');assert.equal(h.diag().lyricsVisible,false);finish(lyricResponse);await until(()=>h.diag().lyricsState==='ready');assert.equal(h.diag().lyricsVisible,true);assert.equal(h.$('#lt-lyrics-panel').hidden,false);await h.close();});
++ await test('unavailable lyrics stay hidden; manual on still displays the unavailable panel',async()=>{const h=await open();interceptLyrics(h,async()=>{throw Error('Unavailable');});await h.player();await until(()=>h.diag().lyricsState==='unavailable');assert.equal(h.diag().lyricsVisible,false);h.click('[data-action=toggleLyrics]');assert.equal(h.diag().lyricsVisible,true);assert.match(h.$('#lt-lyrics-status').textContent,/No lyrics found/);h.w.__ltMock.choose(1);assert.equal(h.diag().lyricsVisible,false);assert.equal(h.diag().lyricsManual,null);await until(()=>h.diag().lyricsState==='unavailable');await h.close();});
++ await test('manual off wins over a pending automatic lookup and resets for the next song',async()=>{const h=await open();let finish;interceptLyrics(h,()=>new Promise(r=>finish=r));await h.player();h.click('[data-action=toggleLyrics]');h.click('[data-action=toggleLyrics]');finish(lyricResponse);await until(()=>h.diag().lyricsState==='ready');assert.equal(h.diag().lyricsVisible,false);interceptLyrics(h,async()=>lyricResponse);h.w.__ltMock.choose(1);assert.equal(h.diag().lyricsVisible,false);await until(()=>h.diag().lyricsState==='ready');assert.equal(h.diag().lyricsVisible,true);await h.close();});
++ await test('a late response from the previous song cannot open or replace the current lyrics',async()=>{const h=await open();let old;interceptLyrics(h,url=>url.includes('demo0')?new Promise(r=>old=r):Promise.reject(Error('Unavailable')));await h.player();h.w.__ltMock.choose(1);await until(()=>h.diag().lyricsState==='unavailable');old(lyricResponse);await sleep(40);assert.equal(h.diag().lyricsVisible,false);assert.equal(h.$('#lt-lyrics-lines').children.length,0);await h.close();});
++ await test('manual lyrics work with automatic lookup disabled, including retry and hide',async()=>{const h=await open({lyrics:false});let calls=0;interceptLyrics(h,async()=>{calls++;if(calls===1)throw Error('Unavailable');return lyricResponse;});await h.player();assert.equal(calls,0);h.click('[data-action=toggleLyrics]');await until(()=>h.diag().lyricsState==='unavailable');assert.equal(h.diag().lyricsVisible,true);h.click('[data-action=retryLyrics]');await until(()=>h.diag().lyricsState==='ready');h.click('[data-action=toggleLyrics]');assert.equal(h.diag().lyricsVisible,false);assert.equal(h.diag().preferences.lyrics,false);await h.close();});
++ await test('empty lyrics never trigger automatic display',async()=>{const h=await open();interceptLyrics(h,async()=>({lyrics:{lines:[]}}));await h.player();await until(()=>h.diag().lyricsState==='unavailable');assert.equal(h.diag().lyricsVisible,false);await h.close();});
++ await test('every numeric settings slider and its accessible output use 5% increments',async()=>{const h=await open();const inputs=[...h.w.document.querySelectorAll('#lt-settings input[type=range]')];assert.ok(inputs.length>45);for(const input of inputs){assert.equal(input.step,'5',input.id);assert.equal(Number(input.min)%5,0,input.id);assert.equal(Number(input.max)%5,0,input.id);assert.match(h.$('#'+input.id+'-value').textContent,/^\d+%$/);assert.match(input.getAttribute('aria-valuetext'),/percent/);}await h.close();});
++ await test('percentage controls map to real timing, blur, rounding and gesture distances',async()=>{const h=await open();for(const [key,value,expected] of [['cardTapDelay',105,420],['rounding',105,33.6],['quickSearchBlur',105,21],['backThreshold',105,84],['pageSpeed',105,105]]){setRange(h,key,value);assert.equal(h.diag().preferences[key],expected,key);assert.equal(h.$('#lt-'+key+'-value').textContent,'105%');}h.click('[data-adjust=backThreshold][data-delta="5"]');assert.equal(h.diag().preferences.backThreshold,88);await h.close();});
++ await test('old preferences migrate to nearest 5% and retain custom feed and history settings',async()=>{const h=await open({rounding:33,quickSearchBlur:15,cardTapDelay:425,glassOpacity:38,textScale:133,size:'large',updateFeed:'https://custom.example.test/latest.json',historySongLimit:500});const p=h.diag().preferences;assert.equal(p.rounding,33.6);assert.equal(p.glassOpacity,40);assert.equal(p.textScale,135);assert.equal(p.touchScale,115);assert.equal(p.historySongLimit,500);assert.equal(p.updateFeed,'https://custom.example.test/latest.json');assert.equal(p.cardTapDelay,420);await h.close();});
++ await test('Home updates real playlists, albums and artists without navigating away or losing scroll',async()=>{const h=await open();h.$('#lt-browse').scrollTop=125;h.w.__ltMock.choose(2,'spotify:playlist:demo-2');h.w.__ltMock.setMetadata({uri:'spotify:track:new',name:'New song',album:{uri:'spotify:album:new',name:'New album'},artists:[{uri:'spotify:artist:new',name:'New artist'}]});assert.equal(h.diag().route,'/');assert.equal(h.$('#lt-browse').scrollTop,125);const recent=[...h.w.document.querySelectorAll('.lt-card-section')].find(section=>section.querySelector('h2')?.textContent==='Recently played');assert.ok(recent);assert.match(recent.textContent,/New album/);assert.match(recent.textContent,/New artist/);assert.ok(recent.querySelector('[data-uri="spotify:playlist:demo-2"]'));const stored=JSON.parse(h.w.localStorage.getItem('liquid-touch.recent-contexts.v1:demo'));assert.equal(new Set(stored.map(row=>row.uri)).size,stored.length);await h.close();});
++ await test('recent Home cards are bounded and are retained across a runtime restart',async()=>{const h=await open();for(let i=0;i<30;i++)h.w.__ltMock.setMetadata({uri:'spotify:track:t'+i,name:'Song '+i,album:{uri:'spotify:album:a'+i,name:'Album '+i},artists:[]});assert.equal(h.diag().recentHomeItems,24);const updater=h.w.LiquidTouchUpdater;h.w.LiquidTouch.destroy();updater.restore();await until(()=>h.diag().phase==='mounted');assert.equal(h.diag().recentHomeItems,24);assert.match(h.$('#lt-browse').textContent,/Album 29/);await h.close();});
++ await test('unchanged playback events update progress without repainting controls',async()=>{const h=await open();const before=h.diag(),observer=new h.w.MutationObserver(()=>{});observer.observe(h.$('#lt-shell'),{attributes:true,subtree:true});for(let i=0;i<100;i++)h.w.__ltMock.emit('onplaypause');assert.equal(h.diag().playerPaints,before.playerPaints);assert.equal(h.diag().progressPaints,before.progressPaints+100);assert.ok(observer.takeRecords().length<5);observer.disconnect();h.w.__ltMock.setPosition(15000);assert.equal(h.$('#lt-elapsed').textContent,'0:15');assert.equal(h.diag().playerPaints,before.playerPaints);await h.close();});
++ await test('changed restrictions and volume controls still repaint immediately',async()=>{const h=await open();h.w.__ltMock.setRestrictions({canSkipNext:false});assert.equal(h.$('#lt-now-playing [data-action=next]').disabled,true);h.w.__ltMock.setRestrictions({canSkipNext:true});assert.equal(h.$('#lt-now-playing [data-action=next]').disabled,false);const input=h.$('#lt-volume');input.value='70';input.dispatchEvent(new h.w.Event('change',{bubbles:true}));await sleep(20);assert.equal(h.$('#lt-volume-text').textContent,'70%');await h.close();});
++ await test('Low-RAM toggles release hidden pages and image backgrounds without changing history',async()=>{const h=await open();await h.player();await until(()=>h.diag().lyricsState==='ready');h.click('[data-action=closePlayer]');h.click('#lt-shell [data-action=settings]');const history=h.diag().historyItems;h.click('[data-pref=lowMemory]');assert.equal(h.w.document.body.dataset.ltLowMemory,'true');assert.equal(h.diag().memoryCaches.pages,0);assert.equal(h.$('#lt-player-background').getAttribute('src'),null);h.click('[data-pref=lowMemory]');assert.equal(h.w.document.body.dataset.ltLowMemory,'false');assert.ok(h.$('#lt-player-background').getAttribute('src'));assert.equal(h.diag().historyItems,history);await h.close();});
++ await test('Low-RAM uses smaller artwork where provided and skips duplicate image sampling',async()=>{const h=await open({lowMemory:true});let decodes=0;h.w.Image=function(){decodes++;};h.w.__ltMock.setMetadata({uri:'spotify:track:small',name:'Smaller cover',album:{uri:'spotify:album:small',name:'Album',images:[{url:'https://example.test/large.jpg',width:1024},{url:'https://example.test/medium.jpg',width:300},{url:'https://example.test/tiny.jpg',width:64}]},artists:[]});assert.equal(h.$('#lt-art').src,'https://example.test/medium.jpg');assert.equal(decodes,0);await h.close();});
++ await test('Low-RAM slows idle polling and hidden windows defer the background poll',async()=>{const h=await open();const delays=[],original=h.w.setTimeout;h.w.setTimeout=(fn,delay,...args)=>{delays.push(delay);return original(fn,delay,...args);};h.click('#lt-shell [data-action=settings]');h.click('[data-pref=lowMemory]');assert.ok(delays.includes(1500));Object.defineProperty(h.w.document,'hidden',{configurable:true,value:true});h.w.document.dispatchEvent(new h.w.Event('visibilitychange'));assert.equal(delays.at(-1),5000);await h.close();});
++ await test('the same tab swipe works in the page body and navigation; edge Back takes priority',async()=>{const h=await open();swipe(h,h.$('#lt-browse'),-110,0);assert.equal(h.diag().route,'/search');await sleep(25);swipe(h,h.$('.lt-nav'),-110,0);assert.equal(h.w.document.body.dataset.ltPage,'library');await sleep(25);swipe(h,h.$('#lt-browse'),110,0,20,320);assert.equal(h.diag().route,'/search');await h.close();});
++ await test('track swipes work on player art, controls and lyrics, with edge Back reserved',async()=>{for(const selector of ['#lt-art-swipe','.lt-np-track','#lt-lyrics-lines']){const h=await open();await h.player();await until(()=>h.diag().lyricsState==='ready');const before=h.$('#lt-np-title').textContent;swipe(h,h.$(selector),-110,0);await sleep(25);assert.notEqual(h.$('#lt-np-title').textContent,before,selector);assert.equal(h.$('#lt-now-playing').open,true);swipe(h,h.$('.lt-np-track'),110,0,20,320);assert.equal(h.$('#lt-now-playing').open,false);await h.close();}});
++ await test('downward dismissal works throughout a sheet at the top of its scroll content',async()=>{const h=await open();h.click('#lt-shell [data-action=settings]');h.click('[data-settings-section=appearance]');swipe(h,h.$('.lt-settings-content'),0,110);assert.equal(h.$('#lt-settings').open,false);await h.close();});
++ await test('vertical scrolling and sliders do not turn into navigation gestures',async()=>{const h=await open();h.click('#lt-shell [data-action=settings]');h.click('[data-settings-section=appearance]');const content=h.$('.lt-settings-content');Object.defineProperties(content,{scrollHeight:{value:1000},clientHeight:{value:300}});content.style.overflowY='auto';content.scrollTop=150;swipe(h,content,0,110);assert.equal(h.$('#lt-settings').open,true);assert.equal(h.$('[data-settings-page=appearance]').hidden,false);swipe(h,h.$('#lt-glassOpacity'),110,0);assert.equal(h.$('[data-settings-page=appearance]').hidden,false);await h.close();});
++ await test('the real-song gallery still mounts, with populated cards and no artwork shortcut',async()=>{const h=await open({},'LiquidTouch-Gallery.html');assert.match(h.$('#lt-browse').textContent,/Rumours|Melancholy|Exodus|Rush|Metaphorical|Love Deluxe/);assert.equal(h.$('[data-action=artworkSettings]'),null);await h.close();});
++ if(process.env.LT_PREVIOUS_PREVIEW)await test('v1.9.5 accepts the newer update and keeps settings and stored history',async()=>{const h=await open({textScale:130,uiScale:120,historySongLimit:500,updateFeed:'https://custom.example.test/latest.json'},process.env.LT_PREVIOUS_PREVIEW);assert.equal(h.w.LiquidTouch.version,'1.9.5');h.w.__ltMock.choose(2);await sleep(20);const before=JSON.parse(h.w.localStorage.getItem('liquid-touch.play-history.v1:demo'));const bundle=JSON.parse(fs.readFileSync(path.join(base,'LiquidTouch-Update-v1.9.6.json'),'utf8'));await h.w.LiquidTouchUpdater.apply(bundle);assert.equal(h.w.LiquidTouch.version,'1.9.6');assert.equal(h.diag().preferences.textScale,130);assert.equal(h.diag().preferences.uiScale,120);assert.equal(h.diag().preferences.historySongLimit,500);assert.equal(h.diag().preferences.updateFeed,'https://custom.example.test/latest.json');assert.ok(h.diag().historyItems>=before.length);assert.equal(h.w.document.querySelectorAll('#lt-shell').length,1);await h.close();});
++ console.log(passed+' v1.9.6 complete-extension DOM regression suites passed. Layout, GPU/RAM savings and live Spotify require device QA.');
++})().catch(error=>{console.error(error);process.exit(1);});
+--- a/LiquidTouch/VERSION.txt
++++ b/LiquidTouch/VERSION.txt
+@@ -1 +1 @@
+-1.9.5
++1.9.6
+--- a/LiquidTouch/BUILD.txt
++++ b/LiquidTouch/BUILD.txt
+@@ -1 +1 @@
+-2026-11-03-r1
++2026-11-03-qol
+--- a/LiquidTouch/updates/release.json
++++ b/LiquidTouch/updates/release.json
+@@ -1,9 +1,9 @@
+ {
+-  "version": "1.9.5",
++  "version": "1.9.6",
+   "summary": [
+-    "Repaired full and Quick Search with client compatibility and native-view recovery.",
+-    "Hold Backspace to keep erasing in normal, Quick and history search.",
+-    "Card hold menus no longer drag artwork. Already on 1.9.5? Reinstall the revised full ZIP."
++    "Lyrics start hidden for each song; found lyrics appear automatically and manual toggles stay per song.",
++    "All numeric settings use percentages and 5% increments; Home keeps real recent playlists, albums and artists fresh.",
++    "Low-RAM mode cuts repeated player paints, background scans, animations and retained pages; consistent gestures and clean artwork."
+   ],
+-  "notes": "# LiquidTouch v1.9.5\n\n3 November 2026\n\n## Revision: search, keyboard and card holds\n\n3 November 2026 · build `2026-11-03-r1` · version remains **1.9.5**.\n\n- Full and Quick Search try available client query definitions, accept wrapped,\n  nested and usable partial responses, and recover through Spotify’s rendered\n  search view when direct searches fail. Quick Search restores its background;\n  stale native completions cannot replace the visible LiquidTouch page.\n- Holding on-screen Backspace erases immediately, pauses for 380 ms, then repeats\n  every 65 ms. Release, cancellation, moving off the key, focus loss, hiding the\n  keyboard and closing the interface stop it. Normal, Quick and history searches\n  use the same behavior. The release click does not erase an extra character.\n- Holding a card opens its menu without native artwork dragging, image ghosts,\n  text selection or the browser image callout. Scrolling and card swipes remain\n  available.\n\n**Already running 1.9.5:** download the revised full ZIP and rerun the normal\ninstaller. The existing updater rejects updates with the same version number;\nCheck now and JSON import cannot replace the original 1.9.5. Settings/history\nretain their existing storage keys. Older compatible versions may use the\nupdated 1.9.5 JSON normally.\n\nValidation: 12 production-controller regression suites passed with a simulated\nhost, plus syntax and package-integrity checks. Browser suites and live Spotify\nwere unavailable for this revision. The previous release’s 69 browser-suite\nresults below are historical, not a new result for this build.\n\n## Player and history\n\n- With lyrics off, the artwork and control column now share a vertical center. The song title and artist are centered within the control column. Larger artwork still flows below the header and can push content down; player scrollbars stay hidden.\n- Listening history uses LiquidTouch’s on-screen keyboard when its search field is touched and the local keyboard setting is enabled. Typing filters the journal; Enter hides the keyboard and keeps history open. The system keyboard remains available when the local keyboard is disabled.\n\n## Touch navigation\n\n- Horizontal tab and edge-Back gestures reveal the incoming LiquidTouch page while dragging, with the navigation selection following progress. Releasing beyond the configured threshold commits the change; short or cancelled gestures return to the current page.\n- Back inside nested action menus previews the previous menu. Dismissing history/action sheets exposes the page underneath as the sheet moves. Quick Search previews its incoming field before committing. Existing player, track-artwork and Settings gestures retain their independent thresholds and speeds.\n- Incoming pages are inert previews: they cannot intercept taps, start playback or share duplicate element IDs. They use bounded card/track previews and cached metadata; navigation commits without waiting for an extra network fetch.\n- Hold menus now animate from the selected card or artwork and anchor beside it on wider displays. Narrow displays use a bottom-docked menu. Holding, moving or cancelling does not also play/open the item. Existing Surface/menu speed and Reduce Motion settings apply.\n\n## Song Radio and search\n\n- **Go to song radio** resolves Spotify’s generated Song Radio playlist, opens it in LiquidTouch, places the selected song first and starts that song in the playlist’s playback context. It no longer starts a generic track station. Unavailable radio playlists show an inline error.\n- Full and Quick Search keep their own route while Spotify finishes startup. A stale host Home event cannot replace the first results page.\n- Failed startup searches get one bounded retry, re-reading client search bindings before falling back to the authenticated catalog service. Valid empty results are not retried. Persistent failures keep an explicit Retry action.\n\n## Optional Low-RAM mode\n\n- Settings → **Appearance & glass → Low-RAM mode** keeps fewer cached pages, images, searches, lyrics and details, reduces artwork concurrency, avoids adjacent-artwork preloading and releases blurred image backgrounds.\n- The interface retains touch navigation and artwork but simplifies blur effects. Some pages may reload. This is an optional reduction of LiquidTouch’s own retained resources, not a fixed RAM saving for Spotify.\n- Listening history, limits, lyric timing, settings and update-feed preferences remain saved. Turning the mode off restores the regular effects and caching policy.\n\n## Gallery and documentation\n\n- The repository README explains the theme/extension’s purpose, touchscreen features, accessibility, installation and updates, with a dedicated screenshot gallery.\n- A separate **LiquidTouch-Gallery.html** demonstrates the production UI with randomly selected real songs, verified artist/album metadata and actual covers. It is self-contained and simulates playback without audio or an account connection. The fictional test preview remains available for repeatable automated checks.\n- Gallery recordings: Dreams — Fleetwood Mac; Three Little Birds — Bob Marley & The Wailers; On Melancholy Hill — Gorillaz; Clocks — Coldplay; Feather (feat. Cise Starr & Akin) — Nujabes; No Ordinary Love — Sade. Artwork/catalog credits are included.\n\n## Updating\n\nExisting compatible installations: **Settings → Updates → Check now**, then choose Update. New users should install the full ZIP with Spotify desktop and compatible Spicetify. Normal updates preserve settings and local listening history. Installer scripts are unchanged.\n\nValidation uses simulated Spotify services and Windows bridges in Chromium. A signed-in Windows Spotify client and physical touchscreen were unavailable. See VALIDATION.md for exact checks.\n"
++  "notes": "# LiquidTouch v1.9.6 — Quality of life\n\n3 November 2026 · build `2026-11-03-qol`\n\n## Lyrics follow the current song\n\n- Every song begins with the lyrics panel hidden. With **Automatically show\n  found lyrics** enabled, the panel appears only after actual lyrics load for\n  the current song. Failed and empty lookups leave the centered player visible.\n- The player's **Lyrics** button can still open the panel when no lyrics were\n  found, so the status, Reload and source options remain accessible.\n- Manual show/hide applies to the current song. The next song starts hidden\n  again and checks its own lyrics. A late response from a previous song cannot\n  replace the current lyrics or open the panel.\n- Automatic lookup can be disabled in Settings without disabling manual lookup.\n\n## Consistent percentage controls\n\n- Every numeric Settings slider and its plus/minus buttons now use percentages\n  in **5% increments**, including opacity, text and control sizes, animation\n  speeds, keyboard/artwork size, blur, corner rounding, card tap timing and\n  gesture distances. Touch control size is adjustable as a percentage too.\n- A value of 100% means the standard amount for that control. Blur and opacity\n  can reach 0%; shorter timing/distance percentages shorten the relevant wait\n  or swipe. Existing values migrate to the nearest supported step.\n- Saved song limits remain actual counts, clock formats remain 12/24-hour\n  choices, and per-recording lyric timing remains a measured time correction.\n  These are not percentage sliders. Playback seek/volume retain their playback\n  precision.\n\n## Home stays current\n\n- A **Recently played** shelf follows actual playback contexts, albums and\n  artists as their metadata becomes available, including when playback changes\n  while another LiquidTouch page or the player is open.\n- Entries move to the front, are deduplicated and persist across normal updates\n  and restarts. The shelf retains up to 24 entities. Missing context metadata is\n  resolved from Spotify when that session permits it; no invented names or\n  artwork are inserted.\n- Home refreshes without changing the route or scroll position, and defers\n  rebuilds while a finger is down. Native Home snapshots replace stale native\n  recommendations instead of accumulating their old ordering indefinitely.\n\n## Less work in Low-RAM mode\n\n- Unchanged playback events now update progress without repainting track\n  metadata and playback controls. This optimization also benefits normal mode.\n- Low-RAM mode reduces background polling and DOM scans, skips animations and\n  adjacent-artwork preloading, releases hidden page fragments, removes blurred\n  image backgrounds and limits caches and artwork-fetch concurrency.\n- It uses smaller player artwork when Spotify supplies an appropriate image,\n  avoids a second image decode for color sampling, removes expensive blur and\n  shadow effects, and lets offscreen rows/cards skip rendering work.\n- The lyric clock runs only for an open player with visible timed lyrics and\n  slows down in Low-RAM mode. Hidden windows defer background polling.\n- Settings, local history, song limits and timing corrections remain saved.\n  The mode changes LiquidTouch's workload; actual total Spotify RAM and frame\n  rate depend on the client, library and PC, and have not been measured here.\n\n## Artwork and gestures\n\n- Removed the picture/settings shortcut over the Now Playing artwork. Artwork\n  sizing is in **Settings → Now Playing**. Artwork holds still open track options.\n- Left-edge swipes go Back throughout browsing, sheets and the player. Horizontal\n  browsing swipes change tabs. Horizontal swipes across player art, track\n  information, controls and lyrics skip tracks; the left edge retains Back.\n- Downward swipes collapse the player or dismiss the top sheet when the\n  relevant scroll container is at the top. Scrolled content continues scrolling.\n- Default track-swipe distances match between the mini player and expanded\n  player. Numeric thresholds are percentages, using the same 5% steps.\n- Fields, sliders, the keyboard and caption buttons keep their normal input.\n  Small, reversed, cancelled and differently angled gestures do not commit a\n  different action. Existing search recovery, held Backspace and artwork drag\n  prevention remain included.\n\n## Update and validation\n\nOn a compatible v1.9.0+ loader, open **Settings → Updates → Check now** and\nchoose Update. Both original and revised v1.9.5 installations can update to\nv1.9.6 normally. A fresh full installer is also included in the release package.\n\nThe complete built extension passed 23 DOM-host regression suites, including a\nreal v1.9.5 → v1.9.6 runtime update with settings/history preservation. The 12\nsearch/keyboard/hold controller suites and 7 installer tests also passed.\nSyntax, update/feed integrity, installer checksum and Git-bundle cloning are\nchecked as part of packaging. Chromium installation was unavailable; simulated\nDOM tests do not verify visual layout, hardware touch behavior or real Spotify\nperformance. See `VALIDATION.md` for the reproducible commands and limits.\n"
+ }

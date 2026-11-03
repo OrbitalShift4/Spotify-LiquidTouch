@@ -1,7 +1,6 @@
 {
-  "version": "1.9.5",
-  "title": "LiquidTouch v1.9.5 — Revised search, keyboard and card holds",
-  "sha256": "1ae526d6e8125e99e9f836f42d85cd1e56d8bc9b9b0b58e093b2da119c8c5931",
-  "replaceExisting": true,
-  "previousSha256": "a6932148606423de148bc28734160de046eab46116e0944c90ff470a43e02614"
+  "version": "1.9.6",
+  "title": "LiquidTouch v1.9.6 — Quality of life",
+  "sha256": "cdf9bdb77a209c984a482ccaafc89d25fe46c81660407a6a5bf0bdaa130e76d2",
+  "replaceExisting": false
 }
