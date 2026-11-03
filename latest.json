@@ -1,13 +1,12 @@
 {
   "schema": 1,
   "app": "LiquidTouch",
-  "version": "1.9.4",
-  "bundleURL": "./releases/LiquidTouch-Update-v1.9.4.json",
-  "sha256": "6cd4b3f704ae866f6aa7ca31b84aa738f334b10c4884916c691fa34cf2d7f893",
+  "version": "1.9.5",
+  "bundleURL": "./releases/LiquidTouch-Update-v1.9.5.json",
+  "sha256": "c32da5e996d7d9e32fccea8a4b4789dd235824bf04b2b16662f9af0332d88a70",
   "summary": [
-    "Redesigned listening history with a compact upper-left Close button, balanced toolbar and consistent artwork rows.",
-    "Queue and Devices no longer contain duplicate system window controls.",
-    "Devices now reads native Spotify Connect, supports desktop device formats and refreshes automatically, with Web API fallback.",
-    "All original v1.9.4 history, touch, player and Quick Search improvements are included."
+    "Centered lyrics-off player and a local keyboard for history search.",
+    "Incoming-page swipe previews, animated anchored menus, Spotify Song Radio and a startup-search retry.",
+    "Optional Low-RAM mode, plus a real-music gallery and expanded documentation."
   ]
 }
