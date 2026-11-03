@@ -3,10 +3,10 @@
   "app": "LiquidTouch",
   "version": "1.9.6",
   "bundleURL": "./releases/LiquidTouch-Update-v1.9.6.json",
-  "sha256": "c2fec96523c971217137b57b949307195c7f019ec9ef7a3c4b4c756ffee53a76",
+  "sha256": "ec3e6ca1ff46689a3c11fbfa4f0f19e58ec1ce07e91ac69fff8d801f52fe74c4",
   "summary": [
-    "Lyrics start hidden for each song; found lyrics appear automatically and manual toggles stay per song.",
-    "All numeric settings use percentages and 5% increments; Home keeps real recent playlists, albums and artists fresh.",
-    "Low-RAM mode cuts repeated player paints, background scans, animations and retained pages; consistent gestures and clean artwork."
+    "Lyrics stay one song ahead for manual skips and natural track changes.",
+    "Playlist and album track taps start the parent context at that song and continue its queue.",
+    "Percentage settings, recent Home items, Low-RAM improvements and consistent gestures remain included."
   ]
 }

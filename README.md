@@ -24,7 +24,7 @@ LiquidTouch provides the touch interface around it.
   down for Quick Search. Gesture distances and animation speeds use percentage controls in 5% steps.
 - **Now Playing:** an app-filling artwork view, playback/volume/seek controls,
   incoming track-artwork swipes, Spotify Connect devices and an owned queue panel.
-- **Lyrics:** hidden until found for each song, with manual show/hide, synchronized lyrics, active-line tracking, tap-to-seek,
+- **Lyrics:** one-song-ahead prefetch, hidden until found for each song, with manual show/hide, synchronized lyrics, active-line tracking, tap-to-seek,
   alternate sources and per-song timing correction when available.
 - **Accessibility:** independent text/interface sizing, player text/control/lyric
   sizing, adjustable artwork, a local on-screen keyboard, Reduce Motion and
@@ -56,24 +56,30 @@ credits are in [the gallery page](docs/screenshots/README.md#music-and-artwork).
 
 ## v1.9.6 — Quality of life
 
-- **Lyrics per song:** start hidden, appear after successful lookup, and allow
-  manual show/hide even when no lyrics were found. Stale song responses are ignored.
-- **Consistent settings:** numeric sliders and plus/minus controls use percentages
-  in 5% steps, including timing, swipe distances, blur and rounding.
-- **Fresh Home:** a saved, deduplicated Recently played shelf follows actual
-  playlists, albums and artists without changing your route or scroll position.
-- **Low-RAM improvements:** fewer player-control repaints and background scans,
-  adaptive polling, smaller supplied artwork, less decoding, reduced effects
-  and no retained hidden page fragments. Actual PC performance remains unmeasured.
-- **Clear artwork:** artwork sizing is in Settings → Now Playing.
-- **Shared gestures:** edge Back, tab swipes, whole-player track swipes and
-  scroll-aware downward dismissal, with normal slider and keyboard input.
+Revised build: `2026-11-03-queue`.
 
-Original and revised v1.9.5 installations can use the built-in updater normally;
-v1.9.6 is a higher version. Settings/history and custom feeds remain saved.
-The complete extension passed 23 DOM-host suites, the existing 12 search/touch
-controller suites and 7 installer tests. Live Spotify and Chromium rendering
-were unavailable. [Full release notes](release-packages/v1.9.6.md).
+- **Lyrics one song ahead:** start warming the first queued song as soon as the
+  current song is known. Manual skips and natural changes reuse the prefetched
+  lines; queue changes replace that target. Low-RAM mode keeps bounded caches.
+- **Track taps in context:** a playlist/album row starts the full parent context
+  at that song and continues its queue. Row UIDs identify duplicate recordings;
+  native playback is tried first and actual playback changes are checked.
+- **Lyrics per song:** hidden until found, with per-song manual show/hide and
+  backup lyric sources. Timing corrections stay local to the recording/source.
+- **Consistent settings:** numeric sliders use percentages in 5% steps.
+- **Fresh Home:** recent playlists, albums and artists update during playback.
+- **Low-RAM improvements:** reduced rendering/scanning, smaller visible lists
+  and simpler effects. Gestures remain consistent across browsing and players.
+
+**Already on v1.9.6?** Download the revised full ZIP and rerun the installer;
+the in-app updater rejects same-version updates. If a higher v1.9.7/v1.9.8 test
+runtime remains active, choose **Settings → Updates → Restore installed version**
+after reinstalling and confirm Restore. Settings, history and lyric timing stay
+saved. Older compatible releases such as v1.9.5 can still update normally.
+
+The new behaviors passed 23 Chromium suites against simulated Spotify services
+and were then confirmed working in Spotify by the user. [Full release notes](release-packages/v1.9.6.md)
+and [validation details](docs/revisions/v1.9.6-queue-validation.md).
 
 ## Install
 

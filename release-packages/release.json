@@ -1,6 +1,7 @@
 {
   "version": "1.9.6",
   "title": "LiquidTouch v1.9.6 — Quality of life",
-  "sha256": "cdf9bdb77a209c984a482ccaafc89d25fe46c81660407a6a5bf0bdaa130e76d2",
-  "replaceExisting": false
+  "sha256": "4ddc877ecfd9c3e1eca5efbd3aafe507c5f94d3616978657b34ddd9699d83898",
+  "replaceExisting": true,
+  "previousSha256": "cdf9bdb77a209c984a482ccaafc89d25fe46c81660407a6a5bf0bdaa130e76d2"
 }
