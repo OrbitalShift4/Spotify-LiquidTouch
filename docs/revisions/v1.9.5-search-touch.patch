@@ -1,0 +1,262 @@
+--- a/LiquidTouch/source/liquid-touch-app.js
++++ b/LiquidTouch/source/liquid-touch-app.js
+@@ -4,6 +4,7 @@
+   "use strict";
+ 
+   const VERSION = "1.9.5";
++  const BUILD = "2026-11-03-r1";
+   const LIVE_REPLACEMENT=Boolean(window.LiquidTouch?.version && window.LiquidTouch.version!==VERSION);
+   try { window.LiquidTouch?.destroy?.(); } catch (error) { console.warn("[LiquidTouch] Previous instance cleanup:", error); }
+   const STORE = "liquid-touch.preferences.v1";
+@@ -845,6 +846,10 @@
+     restoreScroll(view){requestAnimationFrame(()=>{if(this.viewKey(this.snapshotView())===this.viewKey(view)){const scroll=this.activeScroll();if(scroll)scroll.scrollTop=view.scroll || 0;}});}
+     acceptHostRoute(path){
+       if(!path)return;const previousHost=this.observedHostPath;this.observedHostPath=path;
++      const searchOwner=this.nativeSearchOwner;
++      const nativeSearchAt=this.nativeSearchRoutes?.get(path) || 0;
++      if(this.enabled && Date.now()-nativeSearchAt<12000 && (this.nativeNavAt || 0)<=nativeSearchAt)return;
++      if(searchOwner && this.enabled && Date.now()-searchOwner.at<12000 && (path===searchOwner.path || path===searchOwner.previousPath) && (this.nativeNavAt || 0)<=searchOwner.at)return;
+       const request=this.routeRequests.get(path),latest=this.latestRouteRequest;
+       // Owned detail pages keep their own route while a previous host request
+       // finishes underneath. A deliberate interaction with native Spotify exits.
+@@ -990,28 +995,32 @@
+       panel.style.setProperty('--lt-preview-room',room+'px');panel.dataset.noRoom=String(room<64);
+     }
+     normalizeSearch(result){
+-      if(result?.errors?.length)throw new Error('Spotify search unavailable');
+-      const root=result?.data?.searchV2 || result?.data?.search || result?.searchV2 || result?.search || result?.data || result;
+-      const entries=[],seen=new Set();let recognized=false;
++      if(result?.body)result=typeof result.body==='string' ? JSON.parse(result.body) : result.body;
++      const data=result?.data || result;
++      const root=data?.searchV2 || data?.search || data?.searchModalResults || data;
++      const entries=[],seen=new Set();let recognized=false,received=0;
+       for(const [type,keys] of [['track',['tracksV2','tracks']],['artist',['artists']],['album',['albumsV2','albums']],['playlist',['playlists']]]){
+         for(const key of keys){
+-          const group=root?.[key];if(!group)continue;recognized=true;
+-          const rows=Array.isArray(group) ? group : group.items || group.edges || [];
++          const group=root?.[key];if(!group)continue;
++          const rows=Array.isArray(group) ? group : group.items || group.edges;
++          if(!Array.isArray(rows))continue;recognized=true;
+           for(const row of rows){
+-            const raw=row?.item?.data || row?.item || row?.data || row?.node || row;
++            let raw=row;
++            for(let depth=0;depth<5 && raw && !raw.uri && !raw.id && !raw.link;depth++)raw=raw.item || raw.data || raw.node || raw[type] || raw;
+             if(!raw)continue;
++            received++;
+             const entry=normalizeEntity({...raw,uri:raw.uri || raw.link || (raw.id ? `spotify:${type}:${raw.id}` : ''),name:raw.name || raw.profile?.name,title:raw.title,album:raw.album || raw.albumOfTrack});
+             if(entry && !seen.has(entry.uri)){seen.add(entry.uri);entries.push(entry);}
+           }
+-          break;
+         }
+       }
+       if(!recognized)throw new Error('Unknown Spotify search response');
++      if(!entries.length && (result?.errors?.length || received))throw new Error('Spotify search did not return usable results');
+       return entries;
+     }
+     async searchMusic(query,offset=0){
+       const key=query.toLocaleLowerCase()+'|'+offset,cached=this.searchCache.get(key);
+-      if(cached && Date.now()-cached.at<60000)return cached.entries;
++      if(cached && Date.now()-cached.at<60000){this.searchSource=cached.source || 'web-api';return cached.entries;}
+       if(this.searchFlights.has(key))return this.searchFlights.get(key);
+       const job=(async()=>{
+         let failure;
+@@ -1019,27 +1028,67 @@
+         if(attempt)await new Promise(resolve=>setTimeout(resolve,250));
+         if(this.destroyed)throw new Error('Search session ended.');
+         try{
+-        const gql=this.S.GraphQL,definition=gql?.Definitions?.searchDesktop || gql?.QueryDefinitions?.searchDesktop;
++        const gql=this.S.GraphQL;
+         let entries,source='web-api';
+-        if(definition && typeof gql?.Request==='function'){
++        const definitions=[...new Set(['searchDesktop','searchDesktop2','searchModalResults'].flatMap(name=>[gql?.Definitions?.[name],gql?.QueryDefinitions?.[name]]).filter(Boolean))];
++        for(const definition of definitions){
++          if(typeof gql?.Request!=='function')break;
+           try{
+-            const result=await this.withTimeout(gql.Request(definition,{searchTerm:query,offset,limit:10,numberOfTopResults:5,includeAudiobooks:false,includePreReleases:false}),2300);
+-            entries=this.normalizeSearch(result);source='spotify-client';
++            const result=await this.withTimeout(gql.Request(definition,{searchTerm:query,offset,limit:10,numberOfTopResults:5,includeAudiobooks:false,includePreReleases:false,includeAuthors:false,enableEntityExtensionData:false}),2300);
++            entries=this.normalizeSearch(result);source='spotify-client';break;
+           }catch{ /* Fall through to the supported Web API in older wrappers. */ }
+         }
+         if(!entries){
+           const result=await this.apiGet('https://api.spotify.com/v1/search?'+new URLSearchParams({q:query,type:'track,artist,album,playlist',limit:'10',offset:String(offset)}));
+           entries=this.normalizeSearch(result);
+         }
+-        this.searchSource=source;this.searchError='';this.searchCache.set(key,{at:Date.now(),entries});
++        this.searchSource=source;this.searchError='';this.searchCache.set(key,{at:Date.now(),entries,source});
+         if(this.searchCache.size>(this.prefs.lowMemory ? 8 : 32))this.searchCache.delete(this.searchCache.keys().next().value);
+         return entries;
+         }catch(error){failure=error;}
+         }
++        // Some client builds expose no working search definition and reject the
++        // public catalog endpoint. Reuse Spotify's own rendered search instead.
++        if(!offset){try{return await this.searchNativeView(query,key);}catch(error){failure=error;}}
+         throw failure;
+       })();
+       this.searchFlights.set(key,job);
+       try{return await job;}finally{this.searchFlights.delete(key);}
++    }
++    currentSearchQuery(){return cleanText(this.quickOpen ? this.$('lt-quick-input').value : /^\/search(?:\/|$)/.test(this.getRoutePath()) ? this.searchInput.value || this.queryFromPath() : '',300);}
++    async searchNativeView(query,key){
++      const previous=this.nativeSearchQueue || Promise.resolve();
++      const job=previous.catch(()=>{}).then(async()=>{
++        if(this.destroyed || this.currentSearchQuery()!==query)throw new Error('Search superseded');
++        const path='/search/'+encodeURIComponent(query),previousPath=this.history.location?.pathname || '/',at=Date.now();
++        const owner={path,previousPath,at};this.nativeSearchOwner=owner;
++        let changed=previousPath===path,lastChange=0;
++        const observer=new MutationObserver(records=>{if(records.some(r=>!((r.target.nodeType===1 ? r.target : r.target.parentElement)?.closest(OWN)))){changed=true;lastChange=Date.now();}});
++        observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['href','data-uri','aria-busy']});
++        const visit=target=>{this.nativeSearchRoutes ||= new Map();this.nativeSearchRoutes.set(target,Date.now());while(this.nativeSearchRoutes.size>40)this.nativeSearchRoutes.delete(this.nativeSearchRoutes.keys().next().value);this.issuingRoute=true;try{(this.history.replace || this.history.push).call(this.history,target);}finally{this.issuingRoute=false;}};
++        try{
++          if(previousPath!==path)visit(path);
++          while(Date.now()-at<4500){
++            if(this.destroyed || this.currentSearchQuery()!==query || (this.nativeNavAt || 0)>at)throw new Error('Search superseded');
++            const root=document.querySelector('.Root__main-view, .main-view-container, [data-testid="main-view"], #main-view');
++            if(changed && Date.now()-lastChange>=160 && this.history.location?.pathname===path && root && !root.querySelector('[aria-busy="true"],[data-testid="loading"]')){
++              const entries=[...this.collectNativeEntities(root).values()].filter(entry=>['track','artist','album','playlist'].includes(entry.type));
++              if(entries.length || root.querySelector('[data-testid="search-empty-state"],[data-testid="search-no-results"],[data-testid="empty-search-results"],.main-search-emptyResults')){
++                this.searchSource='spotify-view';this.searchError='';this.searchCache.set(key,{at:Date.now(),entries,source:'spotify-view'});
++                while(this.searchCache.size>(this.prefs.lowMemory ? 8 : 32))this.searchCache.delete(this.searchCache.keys().next().value);
++                return entries;
++              }
++            }
++            await new Promise(resolve=>setTimeout(resolve,80));
++          }
++          throw new Error('Spotify search did not finish loading');
++        }finally{
++          observer.disconnect();
++          // Quick Search borrows the native view, then restores its background.
++          if(!this.destroyed && this.nativeSearchOwner===owner && this.history.location?.pathname===path && this.getRoutePath()!==path && (this.nativeNavAt || 0)<=at)visit(previousPath);
++        }
++      });
++      this.nativeSearchQueue=job;return job;
+     }
+     queueLiveSearch(value){
+       clearTimeout(this.searchDebounce);const query=cleanText(value,300);const token=++this.liveSearchToken;
+@@ -1077,7 +1126,7 @@
+         if(more)this.searchOffset+=10;
+         const all=more ? [...this.searchResults,...entries] : entries;
+         this.searchResults=[...new Map(all.map(entry=>[entry.uri,entry])).values()];
+-        this.searchHasMore=entries.length>0 && ['track','artist','album','playlist'].some(type=>entries.filter(entry=>entry.type===type).length>=10);
++        this.searchHasMore=this.searchSource!=='spotify-view' && entries.length>0 && ['track','artist','album','playlist'].some(type=>entries.filter(entry=>entry.type===type).length>=10);
+       }catch{
+         if(token!==this.searchResultsToken || this.destroyed)return;
+         this.searchError='Search is unavailable in this Spotify session. Retry, or open Spotify’s desktop search.';
+@@ -1837,6 +1886,7 @@
+     }
+     cancelHold() { if(this.holdTimer){clearTimeout(this.holdTimer);this.timers.delete(this.holdTimer);}this.holdTimer=0;this.holdCandidate=null; }
+     bindHoldMenus() {
++      this.listen(document,'dragstart',event=>{if(this.enabled && this.holdEntry(event.target)){event.preventDefault();event.stopPropagation();}},{capture:true});
+       this.listen(window,'pointerdown',event=>{
+         this.cancelHold();this.heldPointer=null;this.heldClickUntil=0;
+         if(!this.enabled || event.button!==0 || event.isPrimary===false)return;
+@@ -2335,6 +2385,7 @@
+       this.listen(this.searchInput, "focus", () => { if (this.prefs.keyboard) this.showKeyboard(true); });
+       this.listen(this.$("lt-key-rows"), "click", e => {
+         const key = e.target.closest("button[data-key]");
++        if(key?.dataset.key==='Backspace' && this.backspaceClickBlock?.button===key && Date.now()<this.backspaceClickBlock.until){this.backspaceClickBlock=null;e.preventDefault();return;}
+         if (key) this.typeKey(key.dataset.key);
+       });
+       for (const dialog of [this.nowPlaying, this.settings, this.historyPage, this.releaseDialog, this.utility]) {
+@@ -2532,7 +2583,7 @@
+       this.$('lt-settings-categories').hidden=Boolean(section);
+       for(const page of this.settings.querySelectorAll('[data-settings-page]'))page.hidden=page.dataset.settingsPage!==next;
+       this.$('lt-settings-title').textContent=section?.title || 'Make it yours.';
+-      this.$('lt-settings-subtitle').textContent=section?.subtitle || `LiquidTouch · ${VERSION}`;
++      this.$('lt-settings-subtitle').textContent=section?.subtitle || `LiquidTouch · ${VERSION} · revised`;
+       this.settings.querySelector('[data-action="settingsBack"]').hidden=!section;
+       scroller.scrollTop=this.settingsScroll.get(next) || 0;
+       if(focus){
+@@ -2800,6 +2851,7 @@
+       const query=this.queryFromPath(path);if(!this.libraryOpen && query && query!==this.resultsQuery)void this.loadSearchResults(query);
+     }
+     navigate(path, remember=true,library=false) {
++      if(this.currentSearchQuery()!==this.queryFromPath(path))this.nativeSearchOwner=null;
+       this.cancelPendingCardTap();
+       if(!this.nextPageMotion && path!==this.getRoutePath() && path!=='/' && path!=='/search' && !library)this.nextPageMotion={direction:1};
+       if(remember && (path!==this.getRoutePath() || this.libraryOpen))this.rememberView();
+@@ -2843,7 +2895,7 @@
+       keyboard.classList.toggle('lt-history-keyboard',Boolean(history));
+       const changed=this.$('lt-keyboard').hidden===show;
+       this.$("lt-keyboard").hidden = !show;
+-      if(!show)this.clearKeyFeedback();
++      if(!show){this.stopBackspaceRepeat();this.clearKeyFeedback();}
+       document.body.dataset.ltKeyboard = String(show);
+       this.shell.querySelector('[data-action="keyboard"]').setAttribute("aria-expanded", String(show));
+       if (show) document.body.style.setProperty("--lt-keyboard-height", `${keyboard.offsetHeight}px`);
+@@ -2854,6 +2906,7 @@
+       if(changed){if(show)this.animateSurface(this.$('lt-keyboard'));else this.animateSurface(this.shell.querySelector('.lt-header'));}
+     }
+     buildKeyboard() {
++      this.stopBackspaceRepeat();
+       const rows = this.keyboardSymbols ? [Array.from("1234567890"), Array.from("@#$&-+()/"), Array.from(".,?!':;%")] : [Array.from("qwertyuiop"), Array.from("asdfghjkl"), Array.from("zxcvbnm")];
+       const container = this.$("lt-key-rows");
+       container.replaceChildren();
+@@ -2888,10 +2941,37 @@
+     }
+     releaseKeyFeedback(){const token=this.keyFeedbackToken;this.later(()=>{if(token===this.keyFeedbackToken)this.clearKeyFeedback();},this.motionDuration(110,'keySpeed'));}
+     bindKeyFeedback(){
+-      this.listen(window,'pointerdown',e=>{const b=e.target.closest?.('#lt-keyboard button[data-key]');if(b && !b.disabled && e.isPrimary!==false)this.pressKeyFeedback(b);},{capture:true});
++      this.listen(window,'pointerdown',e=>{const b=e.target.closest?.('#lt-keyboard button[data-key]');if(b && !b.disabled && e.isPrimary!==false && e.button===0){this.pressKeyFeedback(b);if(b.dataset.key==='Backspace'){e.preventDefault();this.startBackspaceRepeat(b,e.pointerId);}}},{capture:true});
++      this.listen(window,'pointerup',e=>{if(this.backspaceRepeat?.id===e.pointerId)this.stopBackspaceRepeat();},{capture:true});
++      this.listen(window,'pointercancel',()=>this.stopBackspaceRepeat(),{capture:true});
++      this.listen(window,'pointermove',e=>{const hold=this.backspaceRepeat;if(hold && e.pointerId===hold.id){const r=hold.button.getBoundingClientRect();if(e.clientX<r.left-8 || e.clientX>r.right+8 || e.clientY<r.top-8 || e.clientY>r.bottom+8)this.stopBackspaceRepeat();}},{capture:true,passive:true});
++      this.listen(window,'blur',()=>this.stopBackspaceRepeat());
++      this.listen(document,'visibilitychange',()=>{if(document.hidden)this.stopBackspaceRepeat();});
++      this.listen(document,'focusin',e=>{if(this.backspaceRepeat && e.target!==this.backspaceRepeat.input)this.stopBackspaceRepeat();});
+       this.listen(window,'pointerup',()=>{if(this.keyFeedbackButton)this.releaseKeyFeedback();},{capture:true});
+       this.listen(window,'pointercancel',()=>this.clearKeyFeedback(),{capture:true});this.listen(window,'blur',()=>this.clearKeyFeedback());
+       this.listen(this.$('lt-key-rows'),'click',e=>{const b=e.target.closest('button[data-key]');if(b && this.keyFeedbackButton!==b){this.pressKeyFeedback(b);this.releaseKeyFeedback();}},{capture:true});
++    }
++    stopBackspaceRepeat(){
++      const hold=this.backspaceRepeat;if(!hold)return;
++      clearTimeout(hold.timer);this.backspaceRepeat=null;
++      this.backspaceClickBlock={button:hold.button,until:Date.now()+1500};
++    }
++    startBackspaceRepeat(button,id){
++      this.stopBackspaceRepeat();this.backspaceClickBlock=null;
++      const input=this.keyboardTarget?.isConnected ? this.keyboardTarget : this.quickOpen ? this.$('lt-quick-input') : this.searchInput;
++      const hold={button,id,input,timer:0};this.backspaceRepeat=hold;
++      this.backspaceClickBlock={button,until:Date.now()+60000};
++      const erase=()=>{
++        if(this.backspaceRepeat!==hold)return;
++        if(this.destroyed || this.$('lt-keyboard').hidden || !button.isConnected || this.keyboardTarget && this.keyboardTarget!==input || !input.isConnected){this.stopBackspaceRepeat();return;}
++        this.typeKey('Backspace');
++        if(this.backspaceRepeat!==hold)return;
++        if((input.selectionStart ?? input.value.length)===0 && (input.selectionEnd ?? input.value.length)===0){this.stopBackspaceRepeat();return;}
++        hold.timer=setTimeout(erase,65);
++      };
++      this.typeKey('Backspace');
++      if(this.backspaceRepeat===hold)hold.timer=setTimeout(erase,380);
+     }
+     typeKey(key) {
+       const input = this.keyboardTarget?.isConnected ? this.keyboardTarget : this.quickOpen ? this.$('lt-quick-input') : this.searchInput;
+@@ -3293,6 +3373,7 @@
+       return { version: VERSION, phase: "mounted", enabled: this.enabled, nativeMainFound: Boolean(this.main), nativeLibraryFound: Boolean(this.library), librarySource:this.librarySource || 'loading', libraryItems:this.libraryEntities.size, libraryHasMore:this.libraryHasMore, historyItems:this.playHistory.length, historyStorage:this.historyState, utilityOpen:this.utility.open, devicesSource:this.devicesSource || 'not requested', playerAvailable: Boolean(this.player), playerDataReady: Boolean(trackFromState(this.getPlayerState())), stateSource:this.stateSource, playerOpen:this.nowPlaying.open, playerOpening:Boolean(this.playerOpening), playerPhase:this.playerPhase || 'closed', playerReveal:this.playerReveal ?? 1, cardTapPending:Boolean(this.pendingCardTap), fullscreen:Boolean(document.fullscreenElement), route:this.getRoutePath(), backSteps:this.viewStack.length, searchSource:this.searchSource || 'not requested', searchError:this.searchError || '', lyricsState:this.lyricState || 'idle', lyricsProvider:this.lyricProvider || '', lyricSource:this.lyricSource || '', lyricOffsetMs:this.lyricOffset(), gestureActive:Boolean(this.activeGesture), animatingSurfaces:this.motionAnimations.size, browseBuilds:this.browseBuildCount || 0, browseReuses:this.browseReuseCount || 0, pagePreview:Boolean(this.pagePreview),memoryCaches:{pages:this.browsePages.size,artwork:this.artCache.size,search:this.searchCache.size,lyrics:this.lyricsCache.size,details:this.detailPages.size}, windowControls:this.chromeMode, windowBridgeAvailable:Boolean(this.windowCapabilities()), spicetifyVersion: this.S.Config?.version || "unknown", viewport: `${innerWidth}×${innerHeight}`, preferences: { ...this.prefs } };
+     }
+     destroy() {
++      this.stopBackspaceRepeat();
+       this.cancelHold();this.utilityToken++;
+       this.cancelPendingCardTap();this.cancelPlayerPresentation?.();
+       this.destroyed = true;
+@@ -3329,7 +3410,7 @@
+   const startedAt = Date.now();
+   function startupDiagnostics() {
+     const S = window.Spicetify;
+-    return { version: VERSION, phase, lastError, spicetifyVersion: S?.Config?.version || "unknown",
++    return { version: VERSION, build: BUILD, phase, lastError, spicetifyVersion: S?.Config?.version || "unknown",
+       theme: S?.Config?.current_theme || "unknown", extensionConfigured: S?.Config?.extensions?.includes("liquid-touch.js") ?? "unknown",
+       themeCSS: Boolean(document.documentElement && getComputedStyle(document.documentElement).getPropertyValue("--lt-header").trim()),
+       wrapperFound: Boolean(S), playerEvents: typeof S?.Player?.addEventListener === "function",
+--- a/LiquidTouch/Themes/LiquidTouch/runtime.css
++++ b/LiquidTouch/Themes/LiquidTouch/runtime.css
+@@ -1240,6 +1240,9 @@
+ #lt-now-playing .lt-art-size-button { position:absolute;right:8px;bottom:8px;z-index:3;min-width:44px;min-height:44px;width:44px;height:44px;border-radius:50%;padding:10px;background:rgba(var(--lt-glass-rgb),.8);box-shadow:0 2px 10px #0005; }
+ #lt-now-playing .lt-art-size-button svg { width:24px;height:24px; }
+ #lt-keyboard .lt-kb-row button.lt-key-held { position:relative;z-index:2;transform:scale(1.08);background:#d8fff0 !important;color:#102d26;box-shadow:0 5px 18px #0005; }
++#lt-keyboard [data-key="Backspace"] { touch-action:none; }
++:is(#lt-shell,.lt-dialog) :is(.lt-card,[data-lt-card],[data-detail-track],[data-history-uri],.lt-art-frame) { -webkit-touch-callout:none;user-select:none;-webkit-user-select:none; }
++:is(#lt-shell,.lt-dialog) :is(.lt-card,[data-lt-card],[data-detail-track],[data-history-uri],.lt-art-frame) img { -webkit-user-drag:none;user-select:none;-webkit-user-select:none;pointer-events:none; }
+ .lt-key-popup { position:fixed;display:grid;place-items:center;z-index:30;pointer-events:none;border-radius:18px;background:var(--lt-accent);color:var(--lt-accent-ink);border:1px solid #ffffffaa;box-shadow:0 8px 24px #0005;font-size:calc(25px * min(var(--lt-text-scale),1.5));font-weight:650; }
+ body[data-lt-motion="reduce"] #lt-keyboard .lt-key-held { transform:none; }
+ @media(prefers-reduced-motion:reduce) { #lt-keyboard .lt-kb-row button.lt-key-held { transform:none; } }

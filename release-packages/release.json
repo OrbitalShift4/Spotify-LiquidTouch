@@ -1,6 +1,7 @@
 {
   "version": "1.9.5",
-  "title": "LiquidTouch v1.9.5 — Touch navigation, Song Radio and gallery",
-  "sha256": "a6932148606423de148bc28734160de046eab46116e0944c90ff470a43e02614",
-  "replaceExisting": false
+  "title": "LiquidTouch v1.9.5 — Revised search, keyboard and card holds",
+  "sha256": "1ae526d6e8125e99e9f836f42d85cd1e56d8bc9b9b0b58e093b2da119c8c5931",
+  "replaceExisting": true,
+  "previousSha256": "a6932148606423de148bc28734160de046eab46116e0944c90ff470a43e02614"
 }

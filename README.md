@@ -56,6 +56,15 @@ credits are in [the gallery page](docs/screenshots/README.md#music-and-artwork).
 
 ## v1.9.5
 
+The revised build (`2026-11-03-r1`) repairs full/Quick Search, adds continuous
+Backspace deletion and prevents artwork dragging during card holds. Existing
+1.9.5 users must download the revised full ZIP and rerun the installer: the
+current updater only accepts higher versions. Settings/history retain their
+existing storage keys. This revision passed 12 simulated-host regression suites;
+live Spotify and browser interaction were unavailable. See the packaged
+`VALIDATION.md` for the exact checks and historical results.
+
+
 This release centers the lyrics-off player, adds the history search keyboard,
 reveals incoming pages during swipes, anchors/animates hold menus, resolves
 Spotify’s Song Radio playlist with the selected track first, hardens the first
